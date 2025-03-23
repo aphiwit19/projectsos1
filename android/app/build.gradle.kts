@@ -2,7 +2,7 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    // id("com.google.gms.google-services") // คอมเมนต์ไว้ ถ้าจะใช้ Firebase ค่อยเปิด
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.projectappsos"
-        minSdk = 23  // เปลี่ยนจาก 21 เป็น 23
+        minSdk = 24 // เพิ่มจาก 23 เป็น 24
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -22,8 +22,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    kotlin {
+        jvmToolchain(17)
+    }
+
     kotlinOptions {
-        jvmTarget = "17"
+        freeCompilerArgs = freeCompilerArgs + listOf("-Xjvm-default=all")
+        apiVersion = "2.0"
+        languageVersion = "2.0"
     }
 
     buildFeatures {
@@ -46,8 +52,9 @@ flutter {
     source = "../.."
 }
 
-// dependencies {
-//     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
-//     implementation("com.google.firebase:firebase-auth")
-//     implementation("com.google.firebase:firebase-firestore")
-// }
+dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.android.gms:play-services-safetynet:18.1.0") // เพิ่ม SafetyNet
+}

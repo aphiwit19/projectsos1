@@ -1,0 +1,38 @@
+{
+  "project_info": {
+    "project_number": "743149788728",
+    "project_id": "projectappsos",
+    "storage_bucket": "projectappsos.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:743149788728:android:e08214bebf7148189050cd",
+        "android_client_info": {
+          "package_name": "com.example.projectappsos"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "743149788728-raf940h2ea5u8lnmgm5t1jnfadgleqbi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.projectappsos",
+            "certificate_hash": "3fc5ff1ef70097c6b1b8d3ab67a5b14e7acb0675"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4XFPXbrH7uF0HBIAfNOpobR3w_A84qvI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,30 +1,48 @@
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/cupertino.dart';
 import '../models/user_profile_model.dart';
+import 'firebase_service.dart';
 
 class ProfileService {
   Future<void> saveProfile(UserProfile userProfile) async {
     try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('userProfile', jsonEncode(userProfile.toJson()));
-      await prefs.setBool('hasProfile', true);
-      // เมื่อเชื่อม Firebase: ใช้ Firestore เช่น db.collection('users').doc(userProfile.userId).set(...)
+      if (userProfile.uid.isEmpty) {
+        throw Exception('UserProfile must have a valid uid');
+      }
+      await FirebaseService.firestore.collection('Users').doc(userProfile.email).set(
+        userProfile.toJson(),
+        SetOptions(merge: true),
+      );
+      debugPrint('Profile saved successfully for email: ${userProfile.email}');
     } catch (e) {
+      debugPrint('Failed to save profile: $e');
       throw Exception('Failed to save profile: $e');
     }
   }
 
-  Future<UserProfile?> getProfile() async {
+  Future<UserProfile?> getProfile(String email) async {
     try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? profileJson = prefs.getString('userProfile');
-      if (profileJson != null) {
-        return UserProfile.fromJson(jsonDecode(profileJson));
+      DocumentSnapshot doc = await FirebaseService.firestore.collection('Users').doc(email).get();
+      if (doc.exists) {
+        return UserProfile.fromJson(doc.data() as Map<String, dynamic>);
       }
       return null;
-      // เมื่อเชื่อม Firebase: return db.collection('users').doc(userId).get()
     } catch (e) {
       throw Exception('Failed to load profile: $e');
+    }
+  }
+
+  Future<void> updateEmail(String oldEmail, String newEmail) async {
+    try {
+      DocumentSnapshot doc = await FirebaseService.firestore.collection('Users').doc(oldEmail).get();
+      if (doc.exists) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['email'] = newEmail;
+        await FirebaseService.firestore.collection('Users').doc(newEmail).set(data);
+        await FirebaseService.firestore.collection('Users').doc(oldEmail).delete();
+      }
+    } catch (e) {
+      throw Exception('Failed to update email: $e');
     }
   }
 }

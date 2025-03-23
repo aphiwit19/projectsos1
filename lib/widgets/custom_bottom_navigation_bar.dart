@@ -4,10 +4,11 @@ class CustomBottomNavigationBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
 
-  CustomBottomNavigationBar({
+   CustomBottomNavigationBar({
     required this.currentIndex,
     required this.onTap,
-  });
+    Key? key,
+  }) : super(key: key);
 
   // รายการของไอคอนและข้อความสำหรับแต่ละแถบ
   final List<Map<String, dynamic>> items = [
@@ -26,14 +27,14 @@ class CustomBottomNavigationBar extends StatelessWidget {
         final int index = items.indexOf(item);
         return BottomNavigationBarItem(
           icon: Container(
-            padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: BoxDecoration(
               color: index == currentIndex
-                  ? Color.fromRGBO(230, 70, 70, 1.0)
+                  ? const Color.fromRGBO(230, 70, 70, 1.0)
                   : Colors.transparent,
               border: Border.all(
                 color: index == currentIndex
-                    ? Color.fromRGBO(230, 70, 70, 1.0)
+                    ? const Color.fromRGBO(230, 70, 70, 1.0)
                     : Colors.transparent,
                 width: 2,
               ),
@@ -44,15 +45,19 @@ class CustomBottomNavigationBar extends StatelessWidget {
               children: [
                 Icon(
                   item['icon'],
+                  size: 20, // ลดขนาด Icon เพื่อให้อยู่ในขอบเขต
                   color: index == currentIndex ? Colors.white : Colors.grey,
                 ),
                 if (index == currentIndex) ...[
-                  SizedBox(width: 8),
-                  Text(
-                    item['label'],
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
+                  const SizedBox(width: 4), // ลดขนาดช่องว่าง
+                  Flexible( // ห่อ Text ด้วย Flexible เพื่อป้องกัน overflow
+                    child: Text(
+                      item['label'],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10, // ลดขนาด Text
+                        overflow: TextOverflow.ellipsis, // ตัดข้อความถ้าเกิน
+                      ),
                     ),
                   ),
                 ],

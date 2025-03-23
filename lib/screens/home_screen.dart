@@ -44,16 +44,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, // ชิดซ้ายสำหรับข้อความด้านบน
         children: [
-          SizedBox(height: 50),
-          Text(
-            "ต้องการขอความช่วยเหลือ หรือไม่?",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+          SizedBox(height: 100),
+          Padding(
+            padding: const EdgeInsets.only(left: 20.0),
+            child: Text(
+              "ต้องการขอความช่วยเหลือ หรือไม่?",
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
             ),
-            textAlign: TextAlign.center,
           ),
           Expanded(
             child: GestureDetector(
@@ -110,15 +113,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.only(bottom: 20),
-            child: Text(
-              "กดปุ่มSOS เพื่อขอความช่วยเหลือ",
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black,
+          Center( // ห่อด้วย Center เพื่อให้ข้อความอยู่กึ่งกลาง
+            child: Padding(
+              padding: EdgeInsets.only(bottom: 20),
+              child: Text(
+                "กดปุ่มSOS เพื่อขอความช่วยเหลือ",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
           ),
         ],

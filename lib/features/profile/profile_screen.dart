@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import 'package:shimmer/shimmer.dart';
 import '../../screens/history_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../widgets/custom_bottom_navigation_bar.dart';
@@ -8,6 +7,9 @@ import '../auth/login_screen.dart';
 import '../emergency_numbers/emergency_numbers_screen.dart';
 import '../emergency_contacts/emergency_contacts_screen.dart';
 import 'edit_profile_screen.dart';
+import '../../services/auth_service.dart';
+import '../../services/profile_service.dart';
+import '../../models/user_profile_model.dart';
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -16,28 +18,45 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic> userProfile = {
-    'fullName': 'สมชาย ใจดี',
-    'gender': 'ชาย',
-    'bloodType': 'O',
-    'medicalConditions': 'ไม่มี',
-    'allergies': 'ยาแก้ปวด',
+    'fullName': '',
+    'gender': '',
+    'bloodType': '',
+    'medicalConditions': '',
+    'allergies': '',
+    'phone': '',
   };
-  String userPhone = 'ไม่ระบุ';
+  String userEmail = 'ไม่ระบุ';
+  final AuthService _authService = AuthService();
+  final ProfileService _profileService = ProfileService();
 
   @override
   void initState() {
     super.initState();
-    _loadProfile();
-    _loadPhone();
+    _loadProfileAndEmail();
   }
 
-  Future<void> _loadProfile() async {
+  Future<void> _loadProfileAndEmail() async {
     try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? profileJson = prefs.getString('userProfile');
-      if (profileJson != null) {
+      String? email = await _authService.getEmail();
+      if (email == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ไม่พบข้อมูลผู้ใช้ กรุณาล็อกอิน')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginScreen()),
+        );
+        return;
+      }
+
+      setState(() {
+        userEmail = email;
+      });
+
+      UserProfile? profile = await _profileService.getProfile(email);
+      if (profile != null) {
         setState(() {
-          userProfile = jsonDecode(profileJson);
+          userProfile = profile.toJson();
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -46,20 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการโหลดข้อมูลโปรไฟล์: $e')),
-      );
-    }
-  }
-
-  Future<void> _loadPhone() async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      setState(() {
-        userPhone = prefs.getString('userPhone') ?? 'ไม่ระบุ';
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการโหลดเบอร์โทรศัพท์: $e')),
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการโหลดข้อมูล: $e')),
       );
     }
   }
@@ -89,8 +95,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           userProfile.addAll(updatedProfile);
         });
         try {
-          SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setString('userProfile', jsonEncode(userProfile));
+          String? email = await _authService.getEmail();
+          if (email == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('ไม่พบข้อมูลผู้ใช้ กรุณาล็อกอิน')),
+            );
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => LoginScreen()),
+            );
+            return;
+          }
+
+          UserProfile updatedUserProfile = UserProfile(
+            uid: await _authService.getUserId() ?? '',
+            email: email,
+            fullName: updatedProfile['fullName'] ?? '',
+            gender: updatedProfile['gender'] ?? '',
+            bloodType: updatedProfile['bloodType'] ?? '',
+            medicalConditions: updatedProfile['medicalConditions'] ?? '',
+            allergies: updatedProfile['allergies'] ?? '',
+            phone: updatedProfile['phone'] ?? '',
+          );
+          await _profileService.saveProfile(updatedUserProfile);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('บันทึกข้อมูลสำเร็จ')),
+          );
         } catch (e) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('เกิดข้อผิดพลาดในการบันทึกข้อมูลที่แก้ไข: $e')),
@@ -107,7 +137,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _logout() {
+  void _logout() async {
+    await _authService.logout();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => LoginScreen()),
@@ -117,28 +148,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
-      backgroundColor: Colors.grey[200],
+      backgroundColor: Color.fromRGBO(244, 244, 244, 1.0),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SizedBox(height: 20),
+            SizedBox(height: 40),
             Text(
               "ฉัน",
               style: TextStyle(
+                color: Colors.black,
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
               ),
             ),
-            SizedBox(height: 40),
+            SizedBox(height: 30),
             Card(
-              color: Color(0xFFD8DADC),
+              elevation: 2,
+              color: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15),
-                side: BorderSide(color: Colors.grey[300]!),
               ),
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -155,92 +185,162 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                              color: Color.fromRGBO(230, 70, 70, 1.0),
                             ),
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 10),
-                    Text(
-                      "ชื่อ-นามสกุล",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                    ListTile(
+                      leading: Icon(Icons.person, color: Colors.grey[600]),
+                      title: Text(
+                        "ชื่อ-นามสกุล",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      subtitle: userProfile['fullName']?.isNotEmpty ?? false
+                          ? Text(
+                        userProfile['fullName'],
+                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                      )
+                          : Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(
+                          width: 120,
+                          height: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                    SizedBox(height: 10),
-                    Text(
-                      userProfile['fullName']?.isNotEmpty ?? false
-                          ? userProfile['fullName']
-                          : 'ไม่ระบุ',
-                      style: TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
-
-                    SizedBox(height: 20),
-                    Text(
-                      "เพศ",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                    ListTile(
+                      leading: Icon(Icons.phone, color: Colors.grey[600]),
+                      title: Text(
+                        "เบอร์โทรศัพท์",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      subtitle: userProfile['phone']?.isNotEmpty ?? false
+                          ? Text(
+                        userProfile['phone'],
+                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                      )
+                          : Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(
+                          width: 100,
+                          height: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                    SizedBox(height: 10),
-                    Text(
-                      userProfile['gender']?.isNotEmpty ?? false
-                          ? userProfile['gender']
-                          : 'ไม่ระบุ',
-                      style: TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
-                    SizedBox(height: 20),
-                    Text(
-                      "หมู่เลือด",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                    ListTile(
+                      leading: Icon(Icons.wc, color: Colors.grey[600]),
+                      title: Text(
+                        "เพศ",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      subtitle: userProfile['gender']?.isNotEmpty ?? false
+                          ? Text(
+                        userProfile['gender'],
+                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                      )
+                          : Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(
+                          width: 60,
+                          height: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                    SizedBox(height: 10),
-                    Text(
-                      userProfile['bloodType']?.isNotEmpty ?? false
-                          ? userProfile['bloodType']
-                          : 'ไม่ระบุ',
-                      style: TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
-                    SizedBox(height: 20),
-                    Text(
-                      "โรคประจำตัว",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                    ListTile(
+                      leading: Icon(Icons.bloodtype, color: Colors.grey[600]),
+                      title: Text(
+                        "หมู่เลือด",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      subtitle: userProfile['bloodType']?.isNotEmpty ?? false
+                          ? Text(
+                        userProfile['bloodType'],
+                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                      )
+                          : Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(
+                          width: 40,
+                          height: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                    SizedBox(height: 10),
-                    Text(
-                      userProfile['medicalConditions']?.isNotEmpty ?? false
-                          ? userProfile['medicalConditions']
-                          : 'ไม่ระบุ',
-                      style: TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
-                    SizedBox(height: 20),
-                    Text(
-                      "การแพ้ยา",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                    ListTile(
+                      leading: Icon(Icons.medical_services, color: Colors.grey[600]),
+                      title: Text(
+                        "โรคประจำตัว",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      subtitle: userProfile['medicalConditions']?.isNotEmpty ?? false
+                          ? Text(
+                        userProfile['medicalConditions'],
+                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                      )
+                          : Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(
+                          width: 80,
+                          height: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                    SizedBox(height: 10),
-                    Text(
-                      userProfile['allergies']?.isNotEmpty ?? false
-                          ? userProfile['allergies']
-                          : 'ไม่ระบุ',
-                      style: TextStyle(fontSize: 16, color: Colors.black87),
+                    ListTile(
+                      leading: Icon(Icons.warning, color: Colors.grey[600]),
+                      title: Text(
+                        "การแพ้ยา",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      subtitle: userProfile['allergies']?.isNotEmpty ?? false
+                          ? Text(
+                        userProfile['allergies'],
+                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                      )
+                          : Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(
+                          width: 80,
+                          height: 16,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -248,10 +348,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             SizedBox(height: 20),
             Card(
-              color: Color(0xFFD8DADC),
+              elevation: 2,
+              color: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15),
-                side: BorderSide(color: Colors.grey[300]!),
               ),
               child: SizedBox(
                 width: double.infinity,
@@ -262,14 +362,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.black,
-                      fontWeight: FontWeight.bold
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
             ),
             SizedBox(height: 20),
-            Center(
+            SizedBox(
+              width: double.infinity,
               child: ElevatedButton(
                 onPressed: _logout,
                 child: Text(
@@ -278,9 +379,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
-                  padding: EdgeInsets.symmetric(vertical: 15, horizontal: 40),
+                  padding: EdgeInsets.symmetric(vertical: 15),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(30),
                   ),
                 ),
               ),

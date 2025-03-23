@@ -3,17 +3,19 @@ import 'dart:convert';
 class SMSLog {
   final String smsId;
   final String userId;
+  final String email; // เพิ่ม email
   final String locationId;
   final String contactId;
   final String recipientNumber;
   final String messageContent;
-  final String sentTime; // ใช้ String ชั่วคราว (จะเปลี่ยนเป็น DateTime เมื่อใช้ Firebase)
+  final DateTime sentTime; // เปลี่ยนเป็น DateTime
   final double latitude;
   final double longitude;
 
   SMSLog({
     required this.smsId,
     required this.userId,
+    required this.email,
     required this.locationId,
     required this.contactId,
     required this.recipientNumber,
@@ -27,11 +29,12 @@ class SMSLog {
     return {
       'smsId': smsId,
       'userId': userId,
+      'email': email,
       'locationId': locationId,
       'contactId': contactId,
       'recipientNumber': recipientNumber,
       'messageContent': messageContent,
-      'sentTime': sentTime,
+      'sentTime': sentTime.toIso8601String(),
       'latitude': latitude,
       'longitude': longitude,
     };
@@ -41,11 +44,12 @@ class SMSLog {
     return SMSLog(
       smsId: json['smsId'] ?? '',
       userId: json['userId'] ?? '',
+      email: json['email'] ?? '',
       locationId: json['locationId'] ?? '',
       contactId: json['contactId'] ?? '',
       recipientNumber: json['recipientNumber'] ?? '',
       messageContent: json['messageContent'] ?? '',
-      sentTime: json['sentTime'] ?? '',
+      sentTime: DateTime.parse(json['sentTime'] ?? DateTime.now().toIso8601String()),
       latitude: json['latitude']?.toDouble() ?? 0.0,
       longitude: json['longitude']?.toDouble() ?? 0.0,
     );
@@ -53,6 +57,6 @@ class SMSLog {
 
   @override
   String toString() {
-    return 'SMSLog(smsId: $smsId, userId: $userId, locationId: $locationId, contactId: $contactId, recipientNumber: $recipientNumber, messageContent: $messageContent, sentTime: $sentTime, latitude: $latitude, longitude: $longitude)';
+    return 'SMSLog(smsId: $smsId, userId: $userId, email: $email, locationId: $locationId, contactId: $contactId, recipientNumber: $recipientNumber, messageContent: $messageContent, sentTime: $sentTime, latitude: $latitude, longitude: $longitude)';
   }
 }

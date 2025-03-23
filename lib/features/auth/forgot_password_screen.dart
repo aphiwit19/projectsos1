@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'otp_verification_screen.dart'; // เชื่อมต่อกับ OTP Verification
-import 'package:flutter/services.dart'; // สำหรับ FilteringTextInputFormatter
+import 'package:projectappsos/features/auth/login_screen.dart';
+import 'package:projectappsos/services/auth_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   @override
@@ -8,131 +8,197 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final TextEditingController phoneController = TextEditingController();
-  String errorMessage = '';
+  final TextEditingController emailController = TextEditingController();
+  String emailError = '';
+  bool _isEmailSent = false;
+  final AuthService _authService = AuthService();
 
-  void sendOTP() {
+  void sendPasswordResetEmail() async {
     setState(() {
-      errorMessage = ''; // ล้างข้อความแจ้งเตือนก่อนตรวจสอบใหม่
+      emailError = '';
     });
 
-    String phone = phoneController.text.trim();
+    String email = emailController.text.trim();
+    bool hasError = false;
 
-    // ตรวจสอบว่าเบอร์ไม่ว่าง
-    if (phone.isEmpty) {
+    if (email.isEmpty) {
       setState(() {
-        errorMessage = 'กรุณากรอกเบอร์โทรศัพท์';
+        emailError = 'กรุณากรอกอีเมล';
       });
-      return;
+      hasError = true;
+    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      setState(() {
+        emailError = 'กรุณากรอกอีเมลให้ถูกต้อง';
+      });
+      hasError = true;
     }
 
-    // ตรวจสอบเบอร์โทรศัพท์ 10 หลัก เริ่มต้นด้วย 0
-    if (phone.length != 10 || !RegExp(r'^0\d{9}$').hasMatch(phone)) {
-      setState(() {
-        errorMessage = 'กรุณากรอกเบอร์โทรศัพท์ 10 หลัก (เริ่มต้นด้วย 0)';
-      });
-      return;
+    if (!hasError) {
+      try {
+        await _authService.sendPasswordResetEmail(email);
+        setState(() {
+          _isEmailSent = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ส่งอีเมลรีเซ็ตรหัสผ่านไปที่ $email เรียบร้อยแล้ว')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดในการส่งอีเมล: $e')),
+        );
+      }
     }
-
-    // ไปหน้า OTP Verification ถ้าผ่านการตรวจสอบ
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => OTPVerificationScreen(phone: phone)),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromRGBO(244, 244, 244, 1.0), // ตั้งพื้นหลังทั้งหน้า
+      backgroundColor: Color.fromRGBO(244, 244, 244,1.0),
       appBar: AppBar(
-        backgroundColor: Colors.white, // ตั้ง AppBar เป็นสีขาว
-        elevation: 0, // ลบเงา AppBar
+        backgroundColor: Color.fromRGBO(244, 244, 244, 1.0),
+        elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: Colors.black),
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: Colors.black,
+            size: 24,
+          ),
           onPressed: () => Navigator.pop(context),
+          padding: EdgeInsets.only(left: 16),
         ),
-
       ),
-      body: Container(
-        color: Color.fromRGBO(244, 244, 244, 1.0), // ตั้ง Container
-        padding: EdgeInsets.all(20),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, // จัดชิดซ้าย
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              "ลืมรหัสผ่าน?",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
+            if (!_isEmailSent) ...[
+              Text(
+                "ลืมรหัสผ่าน",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
               ),
-            ),
-            SizedBox(height: 20),
-            Text(
-              "เบอร์โทรศัพท์",
-              style: TextStyle(fontSize: 14),
-            ),
-            SizedBox(height: 10), // เพิ่มระยะห่างระหว่างข้อความและช่องกรอก
-            TextField(
-              controller: phoneController,
-              keyboardType: TextInputType.phone,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly, // อนุญาตเฉพาะตัวเลข
-                LengthLimitingTextInputFormatter(10), // จำกัดความยาวสูงสุด 10 ตัว
-              ],
-              decoration: InputDecoration(
-                hintText: 'กรุณากรอกหมายเลขโทรศัพท์',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey), // ลบ borderSide ที่ซ้ำออก
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey),
-                ),
-                filled: true,
-                fillColor: Colors.white, // พื้นหลังสีขาวคงที่
-              ),
-            ),
-            if (errorMessage.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 5.0, left: 10.0),
+              SizedBox(height: 40),
+              Align(
+                alignment: Alignment.centerLeft,
                 child: Text(
-                  errorMessage,
-                  style: TextStyle(
-                    color: Color.fromRGBO(230, 70, 70, 1.0),
-                    fontSize: 12,
+                  "กรุณากรอกอีเมลเพื่อรับลิงก์รีเซ็ตรหัสผ่าน",
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+              SizedBox(height: 10),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  hintText: 'กรุณากรอกอีเมล',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+              ),
+              if (emailError.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 5.0, left: 10.0),
+                  child: Text(
+                    emailError,
+                    style: TextStyle(
+                      color: Color.fromRGBO(230, 70, 70, 1.0),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              SizedBox(height: 40),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: sendPasswordResetEmail,
+                  child: Text(
+                    "ส่งอีเมลรีเซ็ตรหัสผ่าน",
+                    style: TextStyle(fontSize: 18, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
+                    padding: EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
                 ),
               ),
-            SizedBox(height: 20),
-            Text(
-              "คุณอาจจะได้รับการแจ้งเตือนทางSMSจากเราเพื่อวัตถุประสงค์ด้านความปลอดภัยและการเข้าสู่ระบบ",
-              style: TextStyle(color: Color.fromRGBO(162, 162, 167, 1.0), fontSize: 12),
-            ),
-            SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity, // ทำให้ปุ่มกว้างเต็มหน้าจอ
-              child: ElevatedButton(
-                onPressed: sendOTP,
-                child: Text(
-                  "ดำเนินการต่อ",
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color.fromRGBO(230, 70, 70, 1.0), // ปุ่มสีแดง
-                  padding: EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30), // ทำให้ปุ่มโค้ง
+            ] else ...[
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 60,
+                      ),
+                      SizedBox(height: 20),
+                      Text(
+                        "ส่งอีเมลรีเซ็ตรหัสผ่านเรียบร้อยแล้ว!",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        "กรุณาตรวจสอบอีเมลของคุณ (${emailController.text}) และคลิกลิงก์เพื่อรีเซ็ตรหัสผ่าน",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[700],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 30),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => LoginScreen()),
+                            );
+                          },
+                          child: Text(
+                            "กลับไปที่หน้าเข้าสู่ระบบ",
+                            style: TextStyle(fontSize: 18, color: Colors.white),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
+                            padding: EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
+            ],
+            SizedBox(height: 20),
           ],
         ),
       ),
