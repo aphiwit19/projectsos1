@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:intl/intl.dart'; // เพิ่ม import สำหรับ intl
+import 'package:intl/date_symbol_data_local.dart'; // เพิ่ม import สำหรับการเริ่มต้น locale
 import 'screens/splash_screen.dart';
-import 'scripts/seed_emergency_numbers.dart'; // เพิ่มการ import
+import 'scripts/seed_emergency_numbers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,6 +14,9 @@ void main() async {
 
   // เพิ่มการ seed ข้อมูลเบอร์โทรฉุกเฉิน
   await seedEmergencyNumbers();
+
+  // เริ่มต้น locale สำหรับ intl
+  await initializeDateFormatting('th', null);
 
   await _requestPermissions();
   runApp(MyApp());

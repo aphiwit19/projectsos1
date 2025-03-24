@@ -17,8 +17,6 @@ dependencies:
   url_launcher: ^6.3.0  # อัพเดตเป็นเวอร์ชันล่าสุด
   permission_handler: ^11.3.1
   sensors_plus: ^5.0.1
-  flutter_sms:
-    path: C:\Users\apiwi\flutter_sms
   intl: ^0.18.0
   shimmer: ^3.0.0
 

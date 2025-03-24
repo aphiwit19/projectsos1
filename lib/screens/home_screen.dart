@@ -5,6 +5,7 @@ import '../features/emergency_numbers/emergency_numbers_screen.dart';
 import '../features/emergency_contacts/emergency_contacts_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
+import 'chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -44,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, // ชิดซ้ายสำหรับข้อความด้านบน
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(height: 100),
           Padding(
@@ -113,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          Center( // ห่อด้วย Center เพื่อให้ข้อความอยู่กึ่งกลาง
+          Center(
             child: Padding(
               padding: EdgeInsets.only(bottom: 20),
               child: Text(
@@ -138,16 +139,22 @@ class _HomeScreenState extends State<HomeScreen> {
               case 1:
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
+                  MaterialPageRoute(builder: (context) => ChatScreen()),
                 );
                 break;
               case 2:
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => EmergencyContactsScreen()),
+                  MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
                 );
                 break;
               case 3:
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => EmergencyContactsScreen()),
+                );
+                break;
+              case 4:
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => ProfileScreen()),

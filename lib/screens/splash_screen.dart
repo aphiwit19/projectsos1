@@ -1,8 +1,9 @@
+// lib/screens/splash_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../features/auth/login_screen.dart';
 import 'home_screen.dart';
-import '../features/profile/edit_user_profile_screen.dart';
+import '../features/profile/edit_user_profile_screen.dart'; // ใช้ InitialProfileSetupScreen
 import '../services/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firebase_service.dart';
@@ -63,12 +64,23 @@ class _SplashScreenState extends State<SplashScreen> {
                     // รอ 2 วินาทีแล้วนำทางไป HomeScreen
                     _navigateAfterDelay(context, HomeScreen());
                   } else {
-                    debugPrint('SplashScreen: User has no profile, navigating to EditUserProfileScreen');
-                    // รอ 2 วินาทีแล้วนำทางไป EditUserProfileScreen
+                    debugPrint('SplashScreen: User has no profile, navigating to InitialProfileSetupScreen');
+                    // รอ 2 วินาทีแล้วนำทางไป InitialProfileSetupScreen
                     _navigateAfterDelay(
                       context,
-                      EditUserProfileScreen(),
-                      arguments: {'email': email},
+                      InitialProfileSetupScreen(
+                        userProfile: {
+                          'uid': snapshot.data!.uid,
+                          'email': email,
+                          'fullName': '',
+                          'phone': '',
+                          'gender': '',
+                          'bloodType': '',
+                          'medicalConditions': '',
+                          'allergies': '',
+                          'isNewUser': true,
+                        },
+                      ),
                     );
                   }
                   return _buildSplashContent(context);

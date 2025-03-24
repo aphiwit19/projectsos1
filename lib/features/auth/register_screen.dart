@@ -1,6 +1,7 @@
+// lib/features/auth/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:projectappsos/features/auth/login_screen.dart';
-import 'package:projectappsos/features/profile/edit_user_profile_screen.dart';
+import 'package:projectappsos/features/profile/edit_user_profile_screen.dart'; // ใช้ InitialProfileSetupScreen
 import 'package:projectappsos/services/auth_service.dart';
 import 'package:flutter/foundation.dart';
 
@@ -102,12 +103,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
         var userCredential = await _authService.register(email, password);
         debugPrint('User registered with UID: ${userCredential.user?.uid}');
 
-        debugPrint('Registration successful, navigating to EditUserProfileScreen');
+        debugPrint('Registration successful, navigating to InitialProfileSetupScreen');
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => EditUserProfileScreen(),
-            settings: RouteSettings(arguments: {'email': email}),
+            builder: (context) => InitialProfileSetupScreen(
+              userProfile: {
+                'uid': userCredential.user?.uid ?? '',
+                'email': email,
+                'fullName': '',
+                'phone': '',
+                'gender': '',
+                'bloodType': '',
+                'medicalConditions': '',
+                'allergies': '',
+                'isNewUser': true, // เพิ่ม flag เพื่อระบุว่าเป็นผู้ใช้ใหม่
+              },
+            ),
           ),
         );
       } catch (e) {

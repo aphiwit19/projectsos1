@@ -1,5 +1,7 @@
+// lib/features/profile/profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../screens/chat_screen.dart';
 import '../../screens/history_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../widgets/custom_bottom_navigation_bar.dart';
@@ -40,7 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       String? email = await _authService.getEmail();
       if (email == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ไม่พบข้อมูลผู้ใช้ กรุณาล็อกอิน')),
+          const SnackBar(content: Text('ไม่พบข้อมูลผู้ใช้ กรุณาล็อกอิน')),
         );
         Navigator.pushReplacement(
           context,
@@ -60,7 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ไม่พบข้อมูลโปรไฟล์')),
+          const SnackBar(content: Text('ไม่พบข้อมูลโปรไฟล์')),
         );
       }
     } catch (e) {
@@ -98,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           String? email = await _authService.getEmail();
           if (email == null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('ไม่พบข้อมูลผู้ใช้ กรุณาล็อกอิน')),
+              const SnackBar(content: Text('ไม่พบข้อมูลผู้ใช้ กรุณาล็อกอิน')),
             );
             Navigator.pushReplacement(
               context,
@@ -119,7 +121,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
           await _profileService.saveProfile(updatedUserProfile);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('บันทึกข้อมูลสำเร็จ')),
+            const SnackBar(content: Text('บันทึกข้อมูลสำเร็จ')),
           );
         } catch (e) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -138,40 +140,152 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _logout() async {
-    await _authService.logout();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => LoginScreen()),
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        elevation: 5,
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.red.withOpacity(0.1),
+                ),
+                child: const Icon(
+                  Icons.logout,
+                  color: Color.fromRGBO(230, 70, 70, 1.0),
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'ยืนยันการออกจากระบบ',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'คุณต้องการออกจากระบบหรือไม่?',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text(
+                        'ยกเลิก',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.black,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[300],
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text(
+                        'ออกจากระบบ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        elevation: 5,
+                        shadowColor: Colors.black26,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+
+    if (confirm == true) {
+      await _authService.logout();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromRGBO(244, 244, 244, 1.0),
+      backgroundColor: const Color.fromRGBO(244, 244, 244, 1.0),
+      appBar: AppBar(
+        backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: const Text(
+          "ฉัน",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SizedBox(height: 40),
-            Text(
-              "ฉัน",
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 30),
-            Card(
-              elevation: 2,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
+            const SizedBox(height: 20),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -180,7 +294,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         GestureDetector(
                           onTap: _editProfile,
-                          child: Text(
+                          child: const Text(
                             "แก้ไข",
                             style: TextStyle(
                               fontSize: 14,
@@ -191,10 +305,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     ListTile(
-                      leading: Icon(Icons.person, color: Colors.grey[600]),
-                      title: Text(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                      leading: const CircleAvatar(
+                        backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
+                        child: Icon(Icons.person, color: Colors.white, size: 20),
+                      ),
+                      title: const Text(
                         "ชื่อ-นามสกุล",
                         style: TextStyle(
                           fontSize: 16,
@@ -205,7 +323,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       subtitle: userProfile['fullName']?.isNotEmpty ?? false
                           ? Text(
                         userProfile['fullName'],
-                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                        style: const TextStyle(fontSize: 16, color: Colors.black87),
                       )
                           : Shimmer.fromColors(
                         baseColor: Colors.grey[300]!,
@@ -213,13 +331,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Container(
                           width: 120,
                           height: 16,
-                          color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
                     ListTile(
-                      leading: Icon(Icons.phone, color: Colors.grey[600]),
-                      title: Text(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                      leading: const CircleAvatar(
+                        backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
+                        child: Icon(Icons.phone, color: Colors.white, size: 20),
+                      ),
+                      title: const Text(
                         "เบอร์โทรศัพท์",
                         style: TextStyle(
                           fontSize: 16,
@@ -230,7 +355,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       subtitle: userProfile['phone']?.isNotEmpty ?? false
                           ? Text(
                         userProfile['phone'],
-                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                        style: const TextStyle(fontSize: 16, color: Colors.black87),
                       )
                           : Shimmer.fromColors(
                         baseColor: Colors.grey[300]!,
@@ -238,13 +363,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Container(
                           width: 100,
                           height: 16,
-                          color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
                     ListTile(
-                      leading: Icon(Icons.wc, color: Colors.grey[600]),
-                      title: Text(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                      leading: const CircleAvatar(
+                        backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
+                        child: Icon(Icons.wc, color: Colors.white, size: 20),
+                      ),
+                      title: const Text(
                         "เพศ",
                         style: TextStyle(
                           fontSize: 16,
@@ -255,7 +387,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       subtitle: userProfile['gender']?.isNotEmpty ?? false
                           ? Text(
                         userProfile['gender'],
-                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                        style: const TextStyle(fontSize: 16, color: Colors.black87),
                       )
                           : Shimmer.fromColors(
                         baseColor: Colors.grey[300]!,
@@ -263,13 +395,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Container(
                           width: 60,
                           height: 16,
-                          color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
                     ListTile(
-                      leading: Icon(Icons.bloodtype, color: Colors.grey[600]),
-                      title: Text(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                      leading: const CircleAvatar(
+                        backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
+                        child: Icon(Icons.bloodtype, color: Colors.white, size: 20),
+                      ),
+                      title: const Text(
                         "หมู่เลือด",
                         style: TextStyle(
                           fontSize: 16,
@@ -280,7 +419,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       subtitle: userProfile['bloodType']?.isNotEmpty ?? false
                           ? Text(
                         userProfile['bloodType'],
-                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                        style: const TextStyle(fontSize: 16, color: Colors.black87),
                       )
                           : Shimmer.fromColors(
                         baseColor: Colors.grey[300]!,
@@ -288,13 +427,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Container(
                           width: 40,
                           height: 16,
-                          color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
                     ListTile(
-                      leading: Icon(Icons.medical_services, color: Colors.grey[600]),
-                      title: Text(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                      leading: const CircleAvatar(
+                        backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
+                        child: Icon(Icons.medical_services, color: Colors.white, size: 20),
+                      ),
+                      title: const Text(
                         "โรคประจำตัว",
                         style: TextStyle(
                           fontSize: 16,
@@ -305,7 +451,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       subtitle: userProfile['medicalConditions']?.isNotEmpty ?? false
                           ? Text(
                         userProfile['medicalConditions'],
-                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                        style: const TextStyle(fontSize: 16, color: Colors.black87),
                       )
                           : Shimmer.fromColors(
                         baseColor: Colors.grey[300]!,
@@ -313,13 +459,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Container(
                           width: 80,
                           height: 16,
-                          color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
                     ListTile(
-                      leading: Icon(Icons.warning, color: Colors.grey[600]),
-                      title: Text(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+                      leading: const CircleAvatar(
+                        backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
+                        child: Icon(Icons.warning, color: Colors.white, size: 20),
+                      ),
+                      title: const Text(
                         "การแพ้ยา",
                         style: TextStyle(
                           fontSize: 16,
@@ -330,7 +483,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       subtitle: userProfile['allergies']?.isNotEmpty ?? false
                           ? Text(
                         userProfile['allergies'],
-                        style: TextStyle(fontSize: 16, color: Colors.black87),
+                        style: const TextStyle(fontSize: 16, color: Colors.black87),
                       )
                           : Shimmer.fromColors(
                         baseColor: Colors.grey[300]!,
@@ -338,7 +491,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Container(
                           width: 80,
                           height: 16,
-                          color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
@@ -346,18 +502,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            SizedBox(height: 20),
-            Card(
-              elevation: 2,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
+            const SizedBox(height: 20),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: SizedBox(
                 width: double.infinity,
                 child: TextButton(
                   onPressed: _viewHistory,
-                  child: Text(
+                  child: const Text(
                     "ประวัติการแจ้งเหตุ",
                     style: TextStyle(
                       fontSize: 16,
@@ -368,30 +531,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _logout,
-                child: Text(
+                child: const Text(
                   "ออกจากระบบ",
                   style: TextStyle(fontSize: 18, color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
-                  padding: EdgeInsets.symmetric(vertical: 15),
+                  backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
+                  elevation: 5,
+                  shadowColor: Colors.black26,
                 ),
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
           ],
         ),
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: 3,
+        currentIndex: 4,
         onTap: (index) {
           switch (index) {
             case 0:
@@ -403,16 +568,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             case 1:
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
+                MaterialPageRoute(builder: (context) => ChatScreen()),
               );
               break;
             case 2:
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => EmergencyContactsScreen()),
+                MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
               );
               break;
             case 3:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => EmergencyContactsScreen()),
+              );
+              break;
+            case 4:
               break;
           }
         },

@@ -1,5 +1,7 @@
+// lib/features/emergency_contacts/emergency_contacts_screen.dart
 import 'package:flutter/material.dart';
 import '../../models/emergency_contact_model.dart';
+import '../../screens/chat_screen.dart';
 import 'add_emergency_contact_screen.dart';
 import 'edit_emergency_contact_screen.dart';
 import '../../screens/home_screen.dart';
@@ -14,8 +16,7 @@ class EmergencyContactsScreen extends StatefulWidget {
   const EmergencyContactsScreen({Key? key}) : super(key: key);
 
   @override
-  State<EmergencyContactsScreen> createState() =>
-      _EmergencyContactsScreenState();
+  State<EmergencyContactsScreen> createState() => _EmergencyContactsScreenState();
 }
 
 class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
@@ -118,6 +119,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                 contacts.add(newContact);
               });
               print('Contact added. Total contacts: ${contacts.length}');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('เพิ่มผู้ติดต่อสำเร็จ')),
+              );
             } catch (e) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('เกิดข้อผิดพลาดในการเพิ่มผู้ติดต่อ: $e')),
@@ -244,7 +248,21 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   Widget build(BuildContext context) {
     print('Building EmergencyContactsScreen. Contacts count: ${contacts.length}');
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F4F4),
+      backgroundColor: const Color.fromRGBO(244, 244, 244, 1.0),
+      appBar: AppBar(
+        backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: Text(
+          "ผู้ติดต่อฉุกเฉิน",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: isLoading
           ? const Center(
         child: CircularProgressIndicator(
@@ -256,6 +274,12 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Icon(
+              Icons.error_outline,
+              color: Colors.grey,
+              size: 50,
+            ),
+            const SizedBox(height: 10),
             Text(
               'เกิดข้อผิดพลาดในการโหลดข้อมูล',
               style: TextStyle(fontSize: 18, color: Colors.grey[600]),
@@ -263,9 +287,13 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _loadUserIdAndContacts,
-              child: const Text('ลองใหม่'),
+              child: const Text('ลองใหม่', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
               ),
             ),
           ],
@@ -275,7 +303,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
           ? _buildEmptyState()
           : _buildContactList(),
       bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: 2,
+        currentIndex: 3,
         onTap: (index) {
           switch (index) {
             case 0:
@@ -287,12 +315,18 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
             case 1:
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
+                MaterialPageRoute(builder: (context) => ChatScreen()),
               );
               break;
             case 2:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
+              );
               break;
             case 3:
+              break;
+            case 4:
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => ProfileScreen()),
@@ -305,189 +339,220 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey[300],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.grey[200],
+                ),
               ),
-            ),
-            Container(
-              width: 100,
-              height: 100,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color.fromRGBO(230, 70, 70, 1.0),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Icon(
-                    Icons.group,
-                    size: 50,
-                    color: Colors.white,
-                  ),
-                  Positioned(
-                    right: 15,
-                    bottom: 15,
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color.fromRGBO(230, 70, 70, 1.0),
-                      ),
-                      child: const Icon(
-                        Icons.add,
-                        size: 20,
-                        color: Colors.white,
+              Container(
+                width: 100,
+                height: 100,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color.fromRGBO(230, 70, 70, 1.0),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(
+                      Icons.group,
+                      size: 50,
+                      color: Colors.white,
+                    ),
+                    Positioned(
+                      right: 15,
+                      bottom: 15,
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color.fromRGBO(230, 70, 70, 1.0),
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          size: 20,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 30),
-        const Text(
-          "เพิ่มผู้ติดต่อกรณีฉุกเฉิน",
-          style: TextStyle(
-              fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 15),
-        const Text(
-          "เพิ่มผู้ติดต่อฉุกเฉินโดยการใส่ชื่อ และเบอร์โทรศัพท์",
-          style: TextStyle(fontSize: 14, color: Colors.black54),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 30),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _addContact,
-            child: const Text("เพิ่มผู้ติดต่อ",
-                style: TextStyle(fontSize: 18, color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
-              padding: const EdgeInsets.symmetric(vertical: 15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
+            ],
+          ),
+          const SizedBox(height: 30),
+          const Text(
+            "เพิ่มผู้ติดต่อกรณีฉุกเฉิน",
+            style: TextStyle(
+                fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 15),
+          Text(
+            "เพิ่มผู้ติดต่อฉุกเฉินโดยการใส่ชื่อและเบอร์โทรศัพท์",
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 30),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _addContact,
+              child: const Text("เพิ่มผู้ติดต่อ",
+                  style: TextStyle(fontSize: 18, color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                elevation: 5,
+                shadowColor: Colors.black26,
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildContactList() {
     return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 40.0),
-            child: Text(
-              "ผู้ติดต่อฉุกเฉิน",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 24,
+
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: _addContact,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+              // decoration: BoxDecoration(
+              //   color: Colors.white,
+              //   borderRadius: BorderRadius.circular(15),
+              //   boxShadow: [
+              //     BoxShadow(
+              //       color: Colors.grey.withOpacity(0.2),
+              //       spreadRadius: 1,
+              //       blurRadius: 5,
+              //       offset: const Offset(0, 2),
+              //     ),
+              //   ],
+              // ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color.fromRGBO(230, 70, 70, 1.0),
+                    ),
+                    child: const Icon(
+                      Icons.add,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  const Text(
+                    "เพิ่มผู้ติดต่อรายใหม่",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromRGBO(230, 70, 70, 1.0),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           const SizedBox(height: 20),
-          GestureDetector(
-            onTap: _addContact,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color.fromRGBO(230, 70, 70, 1.0),
-                  ),
-                  child: const Icon(
-                    Icons.add,
-                    color: Colors.white,
-                    size: 35,
-                  ),
-                ),
-                const SizedBox(width: 30),
-                const Text(
-                  "เพิ่มผู้ติดต่อรายใหม่",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromRGBO(230, 70, 70, 1.0),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 30),
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: contacts.length,
             itemBuilder: (context, index) {
               final contact = contacts[index];
-              return Card(
+              return Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(10))),
-                color: Colors.white,
-                elevation: 2,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      spreadRadius: 1,
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: ListTile(
-                  title: Text(contact.name, style: const TextStyle(fontSize: 16)),
-                  subtitle: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.phone, color: Colors.grey, size: 20),
-                          const SizedBox(width: 10),
-                          Text(contact.phone,
-                              style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                        ],
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                  leading: CircleAvatar(
+                    backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
+                    child: Text(
+                      contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  title: Text(
+                    contact.name,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.phone, color: Colors.grey, size: 16),
+                        const SizedBox(width: 5),
+                        Text(
+                          contact.phone,
+                          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  trailing: PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Colors.grey),
+                    onSelected: (String value) {
+                      if (value == 'edit') {
+                        _editContact(contact.contactId, contact.name, contact.phone);
+                      } else if (value == 'delete') {
+                        _deleteContact(contact.contactId, contact.name);
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      const PopupMenuItem<String>(
+                        value: 'edit',
+                        child: ListTile(
+                          leading: Icon(Icons.edit, color: Colors.grey),
+                          title: Text('แก้ไข'),
+                        ),
                       ),
-                      PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_vert, color: Colors.grey),
-                        onSelected: (String value) {
-                          if (value == 'edit') {
-                            _editContact(contact.contactId, contact.name, contact.phone);
-                          } else if (value == 'delete') {
-                            _deleteContact(contact.contactId, contact.name);
-                          }
-                        },
-                        itemBuilder: (BuildContext context) => [
-                          const PopupMenuItem<String>(
-                            value: 'edit',
-                            child: ListTile(
-                              leading: Icon(Icons.edit, color: Colors.grey),
-                              title: Text('แก้ไข'),
-                            ),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'delete',
-                            child: ListTile(
-                              leading: Icon(
-                                  Icons.delete, color: Color.fromRGBO(230, 70, 70, 1.0)),
-                              title: Text('ลบ'),
-                            ),
-                          ),
-                        ],
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: ListTile(
+                          leading: Icon(
+                              Icons.delete, color: Color.fromRGBO(230, 70, 70, 1.0)),
+                          title: Text('ลบ'),
+                        ),
                       ),
                     ],
                   ),

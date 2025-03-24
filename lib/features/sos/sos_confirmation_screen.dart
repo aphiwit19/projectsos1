@@ -1,14 +1,12 @@
+// lib/features/sos/sos_confirmation_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
-import '../../models/emergency_contact_model.dart';
-import '../../screens/home_screen.dart';
-import '../../services/emergency_contact_service.dart';
-import '../../services/location_service.dart';
-import '../../services/sms_service.dart';
-import '../../services/sos_service.dart';
-import '../../services/auth_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../../screens/home_screen.dart';
+import '../../services/auth_service.dart';
+import '../../services/location_service.dart';
+import '../../services/sos_service.dart';
 
 class SosConfirmationScreen extends StatefulWidget {
   const SosConfirmationScreen({Key? key}) : super(key: key);
@@ -49,15 +47,6 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
     });
 
     try {
-      // ตรวจสอบ permission SMS
-      var smsStatus = await Permission.sms.status;
-      if (!smsStatus.isGranted) {
-        smsStatus = await Permission.sms.request();
-        if (!smsStatus.isGranted) {
-          throw Exception('SMS permission not granted');
-        }
-      }
-
       // ตรวจสอบ permission location
       var locationStatus = await Permission.location.status;
       if (!locationStatus.isGranted) {
@@ -79,56 +68,13 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
         throw Exception('ไม่สามารถดึง userId ได้ กรุณาล็อกอินใหม่');
       }
 
-      // ดึงตำแหน่ง
-      Position position = await LocationService().getCurrentLocation();
-
-      // ดึงข้อมูลผู้ใช้
-      Map<String, dynamic>? userInfo = await SosService().getUserInfo();
-      if (userInfo == null) {
-        throw Exception('ไม่พบข้อมูลผู้ใช้');
-      }
-      String fullName = userInfo['FullName']?.toString() ?? 'ผู้ใช้';
-      String phoneNumber = userInfo['PhoneNumber']?.toString() ?? 'ไม่ระบุ';
-
-      // ดึงผู้ติดต่อฉุกเฉิน
-      List<EmergencyContact> contacts = await EmergencyContactService().getEmergencyContacts(userId);
-      if (contacts.isEmpty) {
-        throw Exception('ไม่พบผู้ติดต่อฉุกเฉิน');
-      }
-
-      // สร้าง List<String> สำหรับ recipients
-      List<String> recipients = contacts
-          .where((contact) => contact.phone != null && contact.phone!.isNotEmpty)
-          .map((contact) => contact.phone!)
-          .toList();
-
-      if (recipients.isEmpty) {
-        throw Exception('ไม่พบเบอร์โทรศัพท์ที่ถูกต้องในผู้ติดต่อฉุกเฉิน');
-      }
-
-      // สร้างข้อความ SMS
-      String message =
-          'ช่วยด้วย! ฉัน $fullName ต้องการความช่วยเหลือฉุกเฉิน ตำแหน่งของฉัน: https://maps.google.com/?q=${position.latitude},${position.longitude} เบอร์โทรของฉัน: $phoneNumber';
-
-      // บันทึกตำแหน่งใน Firestore
-      var location = await SosService().saveLocation(position);
-
-      // ส่ง SMS อัตโนมัติ
-      print('Sending SOS to $recipients');
-      await SmsService().sendSms(recipients, message);
-      print('SOS sent successfully');
-
-      // บันทึก SMS Logs
-      await SosService().logSms(
-        location,
-        contacts.map((contact) => contact.toJson()).toList(),
-        message,
-      );
+      // เรียกใช้ SosService เพื่อส่ง SOS
+      await SosService().sendSos();
 
       // แสดงข้อความแจ้งเตือน
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ส่ง SOS ไปยัง ${recipients.length} ผู้ติดต่อเรียบร้อยแล้ว')),
+          SnackBar(content: Text('ส่ง SOS เรียบร้อยแล้ว')),
         );
       }
 
@@ -146,11 +92,6 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('เกิดข้อผิดพลาด: $errorMessage')),
         );
-        if (errorMessage.contains('SMS service not available')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('อุปกรณ์นี้ไม่รองรับการส่ง SMS อัตโนมัติ')),
-          );
-        }
         // กลับไปหน้า HomeScreen แม้จะเกิดข้อผิดพลาด
         Navigator.pushReplacement(
           context,

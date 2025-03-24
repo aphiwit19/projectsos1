@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart'; // นำเข้าแพ็กเกจ Shimmer
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../screens/chat_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../widgets/custom_bottom_navigation_bar.dart';
 import '../emergency_contacts/emergency_contacts_screen.dart';
@@ -21,7 +22,7 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
   @override
   void initState() {
     super.initState();
-    _loadEmergencyNumbers(); // โหลดข้อมูลในพื้นหลัง
+    _loadEmergencyNumbers();
   }
 
   Future<void> _loadEmergencyNumbers() async {
@@ -29,13 +30,12 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
       final numbers = await _emergencyNumberService.getEmergencyNumbers();
       setState(() {
         emergencyNumbers = numbers;
-        // จัดกลุ่มตามหมวดหมู่ โดยรักษาลำดับดั้งเดิม
         for (var number in numbers) {
           if (!categories.contains(number.category)) {
             categories.add(number.category);
           }
         }
-        print('Categories order: $categories'); // เพิ่มการ debug
+        print('Categories order: $categories');
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -129,7 +129,6 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
 
   Widget _buildEmergencyNumberList() {
     if (emergencyNumbers.isEmpty) {
-      // ถ้ายังไม่มีข้อมูล (กำลังโหลด) ให้แสดง Shimmer สำหรับ 3 หมวดหมู่จำลอง
       return ListView(
         padding: EdgeInsets.fromLTRB(20, 50, 20, 20),
         children: List.generate(3, (index) {
@@ -154,7 +153,7 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
                   ),
                 ),
               ),
-              ...List.generate(2, (i) { // จำลอง 2 รายการต่อหมวดหมู่
+              ...List.generate(2, (i) {
                 return Shimmer.fromColors(
                   baseColor: Colors.grey[300]!,
                   highlightColor: Colors.grey[100]!,
@@ -199,9 +198,8 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
       );
     }
 
-    // ถ้ามีข้อมูลแล้ว ให้แสดงข้อมูลจริง
     return ListView(
-      padding: EdgeInsets.fromLTRB(20, 50, 20, 20),
+      padding: EdgeInsets.fromLTRB(20, 10, 20, 20),
       children: categories.map((category) {
         final numbersInCategory = emergencyNumbers.where((number) => number.category == category).toList();
         return Column(
@@ -235,10 +233,24 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[200],
+      backgroundColor: const Color.fromRGBO(244, 244, 244, 1.0),
+      appBar: AppBar(
+        backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: const Text(
+          "เบอร์ฉุกเฉิน",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: _buildEmergencyNumberList(),
       bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: 1,
+        currentIndex: 2,
         onTap: (index) {
           switch (index) {
             case 0:
@@ -248,14 +260,20 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
               );
               break;
             case 1:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => ChatScreen()),
+              );
               break;
             case 2:
+              break;
+            case 3:
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => EmergencyContactsScreen()),
               );
               break;
-            case 3:
+            case 4:
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => ProfileScreen()),
