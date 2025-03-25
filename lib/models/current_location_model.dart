@@ -3,10 +3,10 @@ import 'dart:convert';
 class CurrentLocation {
   final String locationId;
   final String userId;
-  final String email; // เพิ่ม email
+  final String email;
   final double latitude;
   final double longitude;
-  final DateTime timestamp; // เปลี่ยนเป็น DateTime
+  final DateTime timestamp;
 
   CurrentLocation({
     required this.locationId,

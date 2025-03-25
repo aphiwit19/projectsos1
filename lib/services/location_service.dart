@@ -2,7 +2,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class LocationService {
-  Future<Position> getCurrentLocation() async {
+  Future<Position> getCurrentLocation({required context}) async {
     try {
       // ตรวจสอบว่า GPS เปิดอยู่หรือไม่
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();

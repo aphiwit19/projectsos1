@@ -8,13 +8,15 @@ import 'package:flutter/gestures.dart';
 import '../services/profile_service.dart';
 
 class ChatDetailScreen extends StatefulWidget {
-  final String contactPhone;
+  final String chatId;
   final String contactName;
+  final String contactPhone; // เพิ่ม contactPhone เพื่อใช้ในการส่งข้อความ
 
   const ChatDetailScreen({
     Key? key,
-    required this.contactPhone,
+    required this.chatId,
     required this.contactName,
+    required this.contactPhone, // เพิ่มพารามิเตอร์
   }) : super(key: key);
 
   @override
@@ -23,17 +25,18 @@ class ChatDetailScreen extends StatefulWidget {
 
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
-  CollectionReference? _messagesRef;
+  DocumentReference? _chatDocRef;
   bool _isLoading = true;
   String? _errorMessage;
+  String? _contactPhone;
 
   @override
   void initState() {
     super.initState();
-    _setupMessagesRef();
+    _setupChatDocRef();
   }
 
-  Future<void> _setupMessagesRef() async {
+  Future<void> _setupChatDocRef() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
@@ -59,14 +62,85 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
 
       final email = userDoc.docs.first.id;
+      final chatDocRef = FirebaseFirestore.instance
+          .collection('Users')
+          .doc(email)
+          .collection('chats')
+          .doc(widget.chatId);
+
+      final chatDoc = await chatDocRef.get();
+      if (!chatDoc.exists) {
+        setState(() {
+          _errorMessage = 'ไม่พบแชทนี้';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final chatData = chatDoc.data() as Map<String, dynamic>;
+      final messages = List<Map<String, dynamic>>.from(chatData['messages'] ?? []);
+
+      final currentTimestamp = Timestamp.now();
+      await chatDocRef.update({
+        'lastReadTimestamp': currentTimestamp,
+      });
+
+      final updatedMessages = messages.map((msg) {
+        if (!msg['isMe'] && (msg['status'] == 'delivered' || msg['status'] == 'sent')) {
+          return {
+            ...msg,
+            'status': 'read',
+          };
+        }
+        return msg;
+      }).toList();
+
+      await chatDocRef.update({
+        'messages': updatedMessages,
+      });
+
+      final profileService = ProfileService();
+      final userProfile = await profileService.getProfile(email);
+      if (userProfile != null) {
+        final senderEmail = await profileService.findUserByPhone(chatData['contactPhone']);
+        if (senderEmail != null) {
+          final senderChatsRef = FirebaseFirestore.instance
+              .collection('Users')
+              .doc(senderEmail)
+              .collection('chats');
+          String sanitizedRecipientPhone = userProfile.phone.replaceAll(RegExp(r'[/#\[\]\$]'), '_');
+          String senderChatId = 'chat_$sanitizedRecipientPhone';
+
+          final senderChatDoc = await senderChatsRef.doc(senderChatId).get();
+          if (senderChatDoc.exists) {
+            final senderMessages = List<Map<String, dynamic>>.from(senderChatDoc['messages'] ?? []);
+            final updatedSenderMessages = senderMessages.map((msg) {
+              final msgTimestamp = (msg['timestamp'] as Timestamp).toDate();
+              if (msg['isMe'] &&
+                  (msg['status'] == 'delivered' || msg['status'] == 'sent') &&
+                  msgTimestamp.isBefore(currentTimestamp.toDate())) {
+                return {
+                  ...msg,
+                  'status': 'read',
+                };
+              }
+              return msg;
+            }).toList();
+
+            await senderChatsRef.doc(senderChatId).update({
+              'messages': updatedSenderMessages,
+              'lastReadTimestamp': currentTimestamp,
+            });
+          }
+        }
+      }
+
       setState(() {
-        _messagesRef = FirebaseFirestore.instance
-            .collection('Users')
-            .doc(email)
-            .collection('chats');
+        _chatDocRef = chatDocRef;
+        _contactPhone = chatData['contactPhone'] as String?;
         _isLoading = false;
       });
-    } catch (e) {
+    } on Exception catch (e) {
       setState(() {
         _errorMessage = 'เกิดข้อผิดพลาด: $e';
         _isLoading = false;
@@ -75,7 +149,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _sendMessage() async {
-    if (_messageController.text.trim().isEmpty || _messagesRef == null) return;
+    if (_messageController.text.trim().isEmpty || _chatDocRef == null || _contactPhone == null) return;
 
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -94,40 +168,123 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final userProfile = await profileService.getProfile(senderEmail);
       if (userProfile == null) return;
 
-      // บันทึกข้อความในแชทของผู้ส่ง
-      await _messagesRef!.add({
-        'contactPhone': widget.contactPhone,
-        'contactName': widget.contactName,
-        'text': _messageController.text,
+      final timestamp = Timestamp.now();
+      final messageText = _messageController.text;
+      final message = {
+        'text': messageText,
         'isMe': true,
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': timestamp,
+        'status': 'sent',
+      };
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final chatDoc = await transaction.get(_chatDocRef!);
+        if (chatDoc.exists) {
+          final messages = List<Map<String, dynamic>>.from(chatDoc['messages'] ?? []);
+          bool messageExists = messages.any((msg) =>
+          msg['text'] == messageText &&
+              (msg['timestamp'] as Timestamp).millisecondsSinceEpoch ==
+                  timestamp.millisecondsSinceEpoch);
+
+          if (!messageExists) {
+            transaction.update(_chatDocRef!, {
+              'messages': FieldValue.arrayUnion([message]),
+              'lastMessage': messageText,
+              'lastTimestamp': timestamp,
+            });
+          }
+        } else {
+          transaction.set(_chatDocRef!, {
+            'contactPhone': _contactPhone,
+            'contactName': widget.contactName,
+            'messages': [message],
+            'lastMessage': messageText,
+            'lastTimestamp': timestamp,
+            'lastReadTimestamp': null,
+          });
+        }
       });
 
-      // ตรวจสอบว่าผู้รับมีบัญชีในแอปหรือไม่
-      final recipientEmail = await profileService.findUserByPhone(widget.contactPhone);
+      final recipientEmail = await profileService.findUserByPhone(_contactPhone!);
       if (recipientEmail != null) {
         final recipientChatsRef = FirebaseFirestore.instance
             .collection('Users')
             .doc(recipientEmail)
             .collection('chats');
-        await recipientChatsRef.add({
-          'contactPhone': userProfile.phone,
-          'contactName': userProfile.fullName,
-          'text': _messageController.text,
+
+        String sanitizedSenderPhone = userProfile.phone.replaceAll(RegExp(r'[/#\[\]\$]'), '_');
+        String recipientChatId = 'chat_$sanitizedSenderPhone';
+
+        final recipientChatDocRef = recipientChatsRef.doc(recipientChatId);
+        final recipientMessage = {
+          'text': messageText,
           'isMe': false,
-          'timestamp': FieldValue.serverTimestamp(),
+          'timestamp': timestamp,
+          'status': 'delivered',
+        };
+
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final recipientChatSnapshot = await transaction.get(recipientChatDocRef);
+          if (recipientChatSnapshot.exists) {
+            final messages = List<Map<String, dynamic>>.from(recipientChatSnapshot['messages'] ?? []);
+            bool messageExists = messages.any((msg) =>
+            msg['text'] == messageText &&
+                (msg['timestamp'] as Timestamp).millisecondsSinceEpoch ==
+                    timestamp.millisecondsSinceEpoch);
+
+            if (!messageExists) {
+              transaction.update(recipientChatDocRef, {
+                'messages': FieldValue.arrayUnion([recipientMessage]),
+                'lastMessage': messageText,
+                'lastTimestamp': timestamp,
+              });
+            }
+          } else {
+            transaction.set(recipientChatDocRef, {
+              'contactPhone': userProfile.phone,
+              'contactName': widget.contactName, // ใช้ชื่อที่ A ตั้งให้ B (เช่น "เมีย")
+              'messages': [recipientMessage],
+              'lastMessage': messageText,
+              'lastTimestamp': timestamp,
+              'lastReadTimestamp': null,
+            });
+          }
+        });
+
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final chatDoc = await transaction.get(_chatDocRef!);
+          if (chatDoc.exists) {
+            final messages = List<Map<String, dynamic>>.from(chatDoc['messages'] ?? []);
+            final updatedMessages = messages.map((msg) {
+              if (msg['text'] == messageText &&
+                  (msg['timestamp'] as Timestamp).millisecondsSinceEpoch ==
+                      timestamp.millisecondsSinceEpoch &&
+                  msg['status'] == 'sent') {
+                return {
+                  'text': messageText,
+                  'isMe': true,
+                  'timestamp': timestamp,
+                  'status': 'delivered',
+                };
+              }
+              return msg;
+            }).toList();
+
+            transaction.update(_chatDocRef!, {
+              'messages': updatedMessages,
+            });
+          }
         });
       }
 
       _messageController.clear();
-    } catch (e) {
+    } on Exception catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('เกิดข้อผิดพลาดในการส่งข้อความ: $e')),
       );
     }
   }
 
-  // ฟังก์ชันสำหรับแปลง timestamp เป็นวันที่และเวลา
   String _formatTimestamp(Timestamp? timestamp) {
     if (timestamp == null) return 'ไม่ระบุเวลา';
     final dateTime = timestamp.toDate();
@@ -135,7 +292,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return formatter.format(dateTime);
   }
 
-  // ฟังก์ชันสำหรับเปิดลิงก์
   Future<void> _launchURL(String url) async {
     final Uri uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
@@ -147,7 +303,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  // ฟังก์ชันสำหรับตรวจจับและแยกข้อความที่มีลิงก์
   Widget _buildMessageText(String text, bool isMe) {
     final urlRegExp = RegExp(r'https://maps\.google\.com/[^\s]+');
     final matches = urlRegExp.allMatches(text);
@@ -166,7 +321,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     int lastIndex = 0;
 
     for (final match in matches) {
-      // ข้อความก่อนลิงก์
       if (match.start > lastIndex) {
         parts.add(TextSpan(
           text: text.substring(lastIndex, match.start),
@@ -177,7 +331,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ));
       }
 
-      // ลิงก์
       final url = text.substring(match.start, match.end);
       parts.add(TextSpan(
         text: url,
@@ -195,7 +348,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       lastIndex = match.end;
     }
 
-    // ข้อความหลังลิงก์
     if (lastIndex < text.length) {
       parts.add(TextSpan(
         text: text.substring(lastIndex),
@@ -241,7 +393,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   setState(() {
                     _isLoading = true;
                     _errorMessage = null;
-                    _setupMessagesRef();
+                    _setupChatDocRef();
                   });
                 },
                 child: Text('ลองใหม่'),
@@ -261,29 +413,39 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black,size: 24,),
+          icon: Icon(Icons.arrow_back, color: Colors.black, size: 24),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
-        title: Text(
-          widget.contactName,
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              widget.contactName,
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 2),
+            Text(
+              _contactPhone ?? 'ไม่ระบุ',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
+          ],
         ),
         centerTitle: true,
       ),
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _messagesRef!
-                  .where('contactPhone', isEqualTo: widget.contactPhone)
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: _chatDocRef!.snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
@@ -298,7 +460,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         SizedBox(height: 10),
                         ElevatedButton(
                           onPressed: () {
-                            setState(() {}); // รีเฟรชหน้า
+                            setState(() {});
                           },
                           child: Text('ลองใหม่'),
                           style: ElevatedButton.styleFrom(
@@ -313,8 +475,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   return Center(child: CircularProgressIndicator());
                 }
 
-                final messages = snapshot.data!.docs;
-                debugPrint('Messages for ${widget.contactPhone}: ${messages.length}');
+                if (!snapshot.hasData || !snapshot.data!.exists) {
+                  return Center(
+                    child: Text(
+                      'ยังไม่มีข้อความ เริ่มแชทเลย!',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  );
+                }
+
+                final chatData = snapshot.data!.data() as Map<String, dynamic>;
+                final messages = List<Map<String, dynamic>>.from(chatData['messages'] ?? []);
+
+                messages.sort((a, b) {
+                  final aTimestamp = (a['timestamp'] as Timestamp?)?.toDate() ?? DateTime(0);
+                  final bTimestamp = (b['timestamp'] as Timestamp?)?.toDate() ?? DateTime(0);
+                  return bTimestamp.compareTo(aTimestamp);
+                });
 
                 if (messages.isEmpty) {
                   return Center(
@@ -330,14 +507,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   padding: EdgeInsets.symmetric(vertical: 15, horizontal: 15),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final message = messages[index].data() as Map<String, dynamic>;
+                    final message = messages[index];
                     final isMe = message['isMe'] as bool;
                     final timestamp = message['timestamp'] as Timestamp?;
+                    final status = message['status'] as String? ?? 'sent';
                     final formattedTime = _formatTimestamp(timestamp);
 
                     return Column(
-                      crossAxisAlignment:
-                      isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                       children: [
                         Align(
                           alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -353,12 +530,27 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         ),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
-                            formattedTime,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
+                          child: Row(
+                            mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                            children: [
+                              Text(
+                                formattedTime,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              if (isMe && status != 'sent') ...[
+                                SizedBox(width: 5),
+                                Text(
+                                  status == 'read' ? 'อ่านแล้ว' : 'ส่งถึงแล้ว',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: status == 'read' ? Colors.blue : Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],

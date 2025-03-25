@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import '../models/sos_log_model.dart';
 import '../models/emergency_contact_model.dart';
 import 'emergency_contact_service.dart';
@@ -12,6 +13,12 @@ import 'profile_service.dart';
 class SosService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  String _sanitizeName(String name) {
+    return name
+        .replaceAll(RegExp(r'[/#\[\]\$]'), '_')
+        .replaceAll(' ', '_');
+  }
 
   Future<String?> _getEmailFromUserId(String userId) async {
     try {
@@ -24,7 +31,7 @@ class SosService {
         return null;
       }
       return query.docs.first.id;
-    } catch (e) {
+    } on Exception catch (e) { // เปลี่ยนจาก catch (Object e) เป็น on Exception catch (e)
       throw Exception('Error getting email: $e');
     }
   }
@@ -41,94 +48,202 @@ class SosService {
         throw Exception('ไม่พบอีเมลผู้ใช้');
       }
 
-      // ดึงข้อมูลผู้ใช้ (ผู้ส่ง)
       final profileService = ProfileService();
       final userProfile = await profileService.getProfile(senderEmail);
       if (userProfile == null) {
         throw Exception('ไม่พบข้อมูลโปรไฟล์ผู้ใช้');
       }
 
-      // ดึงตำแหน่งปัจจุบัน
       final locationService = LocationService();
-      final position = await locationService.getCurrentLocation();
-      final mapLink = 'https://maps.google.com/?q=${position.latitude},${position.longitude}';
+      final position = await locationService.getCurrentLocation(context: null);
+      String mapLink;
+      if (position != null) {
+        mapLink = 'https://maps.google.com/?q=${position.latitude},${position.longitude}';
+      } else {
+        mapLink = 'ไม่สามารถดึงตำแหน่งได้ กรุณาเปิด GPS หรือให้สิทธิ์การเข้าถึงตำแหน่ง';
+      }
 
-      // สร้างข้อความ SOS
-      final message = 'ช่วยด้วย! ฉันต้องการความช่วยเหลือ\n'
+      final messageText = 'ช่วยด้วย! ฉันต้องการความช่วยเหลือ\n'
           'ตำแหน่ง: $mapLink\n'
-          'ข้อมูลผู้ใช้: ชื่อ: ${userProfile.fullName}, '
-          'เบอร์: ${userProfile.phone}, '
-          'กรุ๊ปเลือด: ${userProfile.bloodType}, '
-          'อาการป่วย: ${userProfile.medicalConditions}, '
-          'ภูมิแพ้: ${userProfile.allergies}';
+          'ข้อมูลผู้ใช้: ชื่อ: ${userProfile.fullName ?? 'ไม่ระบุ'}, '
+          'เบอร์: ${userProfile.phone ?? 'ไม่ระบุ'}, '
+          'กรุ๊ปเลือด: ${userProfile.bloodType ?? 'ไม่ระบุ'}, '
+          'อาการป่วย: ${userProfile.medicalConditions ?? 'ไม่ระบุ'}, '
+          'ภูมิแพ้: ${userProfile.allergies ?? 'ไม่ระบุ'}';
 
-      // ดึงรายชื่อผู้ติดต่อฉุกเฉิน
       final contactService = EmergencyContactService();
       final contacts = await contactService.getEmergencyContacts(user.uid);
       if (contacts.isEmpty) {
         throw Exception('ไม่มีผู้ติดต่อฉุกเฉิน');
       }
 
-      // เก็บรายชื่อผู้ติดต่อที่ได้รับการแจ้งเหตุ
       final recipients = <String>[];
+      final timestamp = Timestamp.now();
+      final formattedTimestamp = DateFormat('yyyyMMddTHHmmss').format(timestamp.toDate());
 
-      // ส่งข้อความไปยังแชทของผู้ติดต่อแต่ละคน
       final senderChatsRef = _firestore.collection('Users').doc(senderEmail).collection('chats');
       for (var contact in contacts) {
-        recipients.add(contact.name);
-        debugPrint('Processing contact: ${contact.name}, phone: ${contact.phone}');
+        recipients.add(contact.phone);
+        debugPrint('Processing contact: ${contact.phone}');
 
-        // บันทึกข้อความในแชทของผู้ส่ง (บัญชี A)
-        await senderChatsRef.add({
-          'contactPhone': contact.phone, // ใช้เบอร์โทรเป็นตัวระบุ
-          'contactName': contact.name,  // เก็บชื่อเพื่อแสดงผล
-          'text': message,
+        String sanitizedContactPhone = contact.phone.replaceAll(RegExp(r'[/#\[\]\$]'), '_');
+        String chatId = 'chat_$sanitizedContactPhone';
+
+        final message = {
+          'text': messageText,
           'isMe': true,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-        debugPrint('SOS saved to sender\'s chat: $senderEmail for contact: ${contact.name}');
+          'timestamp': timestamp,
+          'status': 'sent',
+        };
 
-        // ตรวจสอบว่าผู้ติดต่อมีบัญชีในแอปหรือไม่
+        await _firestore.runTransaction((transaction) async {
+          final chatDocRef = senderChatsRef.doc(chatId);
+          final chatDoc = await transaction.get(chatDocRef);
+
+          if (chatDoc.exists) {
+            final messages = List<Map<String, dynamic>>.from(chatDoc['messages'] ?? []);
+            bool messageExists = messages.any((msg) =>
+            msg['text'] == messageText &&
+                (msg['timestamp'] as Timestamp).millisecondsSinceEpoch ==
+                    timestamp.millisecondsSinceEpoch);
+
+            if (!messageExists) {
+              transaction.update(chatDocRef, {
+                'messages': FieldValue.arrayUnion([message]),
+                'lastMessage': messageText,
+                'lastTimestamp': timestamp,
+                'lastReadTimestamp': chatDoc['lastReadTimestamp'] ?? null,
+              });
+            }
+          } else {
+            transaction.set(chatDocRef, {
+              'contactPhone': contact.phone,
+              'contactName': contact.name,
+              'messages': [message],
+              'lastMessage': messageText,
+              'lastTimestamp': timestamp,
+              'lastReadTimestamp': null,
+            });
+          }
+        });
+
+        debugPrint('SOS saved to sender\'s chat: $senderEmail for contact: ${contact.phone}');
+
         final recipientEmail = await profileService.findUserByPhone(contact.phone);
         if (recipientEmail != null) {
-          // ถ้ามีบัญชี ส่งข้อความไปยังแชทของผู้รับ
           debugPrint('Sending SOS to recipient: $recipientEmail');
           final recipientChatsRef = _firestore.collection('Users').doc(recipientEmail).collection('chats');
-          await recipientChatsRef.add({
-            'contactPhone': userProfile.phone, // ใช้เบอร์โทรของผู้ส่ง
-            'contactName': userProfile.fullName, // ใช้ชื่อผู้ส่ง
-            'text': message,
+
+          String sanitizedSenderPhone = (userProfile.phone ?? '').replaceAll(RegExp(r'[/#\[\]\$]'), '_');
+          String recipientChatId = 'chat_$sanitizedSenderPhone';
+
+          final recipientMessage = {
+            'text': messageText,
             'isMe': false,
-            'timestamp': FieldValue.serverTimestamp(),
+            'timestamp': timestamp,
+            'status': 'delivered',
+          };
+
+          await _firestore.runTransaction((transaction) async {
+            final recipientChatDocRef = recipientChatsRef.doc(recipientChatId);
+            final recipientChatDoc = await transaction.get(recipientChatDocRef);
+
+            if (recipientChatDoc.exists) {
+              final messages = List<Map<String, dynamic>>.from(recipientChatDoc['messages'] ?? []);
+              bool messageExists = messages.any((msg) =>
+              msg['text'] == messageText &&
+                  (msg['timestamp'] as Timestamp).millisecondsSinceEpoch ==
+                      timestamp.millisecondsSinceEpoch);
+
+              if (!messageExists) {
+                transaction.update(recipientChatDocRef, {
+                  'messages': FieldValue.arrayUnion([recipientMessage]),
+                  'lastMessage': messageText,
+                  'lastTimestamp': timestamp,
+                  'lastReadTimestamp': recipientChatDoc['lastReadTimestamp'] ?? null,
+                });
+              }
+            } else {
+              transaction.set(recipientChatDocRef, {
+                'contactPhone': userProfile.phone ?? 'ไม่ระบุ',
+                'contactName': userProfile.fullName ?? 'ไม่ระบุ',
+                'messages': [recipientMessage],
+                'lastMessage': messageText,
+                'lastTimestamp': timestamp,
+                'lastReadTimestamp': null,
+              });
+            }
           });
+
+          await _firestore.runTransaction((transaction) async {
+            final chatDocRef = senderChatsRef.doc(chatId);
+            final chatDoc = await transaction.get(chatDocRef);
+
+            if (chatDoc.exists) {
+              final messages = List<Map<String, dynamic>>.from(chatDoc['messages'] ?? []);
+              final updatedMessages = messages.map((msg) {
+                if (msg['text'] == messageText &&
+                    (msg['timestamp'] as Timestamp).millisecondsSinceEpoch ==
+                        timestamp.millisecondsSinceEpoch &&
+                    msg['status'] == 'sent') {
+                  return {
+                    'text': messageText,
+                    'isMe': true,
+                    'timestamp': timestamp,
+                    'status': 'delivered',
+                  };
+                }
+                return msg;
+              }).toList();
+
+              transaction.update(chatDocRef, {
+                'messages': updatedMessages,
+              });
+            }
+          });
+
           debugPrint('SOS sent to $recipientEmail');
         } else {
           debugPrint('No account found for ${contact.phone}, only saved to sender\'s chat');
         }
       }
 
-      // บันทึกประวัติการแจ้งเหตุ SOS
-      debugPrint('Saving SOS log for $senderEmail');
+      String sanitizedFullName = _sanitizeName(userProfile.fullName ?? 'unknown');
+      String customSosId = 'sos_${sanitizedFullName}_$formattedTimestamp';
+      int sosSequence = 0;
       final sosLogsRef = _firestore.collection('Users').doc(senderEmail).collection('sos_logs');
-      await sosLogsRef.add({
-        'timestamp': FieldValue.serverTimestamp(),
-        'location': {
+      while (true) {
+        final existingSosDoc = await sosLogsRef.doc(customSosId).get();
+        if (!existingSosDoc.exists) break;
+        sosSequence++;
+        customSosId = 'sos_${sanitizedFullName}_${formattedTimestamp}_$sosSequence';
+      }
+
+      debugPrint('Saving SOS log for $senderEmail');
+      await sosLogsRef.doc(customSosId).set({
+        'timestamp': timestamp,
+        'location': position != null
+            ? {
           'latitude': position.latitude,
           'longitude': position.longitude,
+        }
+            : {
+          'latitude': null,
+          'longitude': null,
         },
         'mapLink': mapLink,
         'message': 'ช่วยด้วย! ฉันต้องการความช่วยเหลือ',
         'userInfo': {
-          'fullName': userProfile.fullName,
-          'phone': userProfile.phone,
-          'bloodType': userProfile.bloodType,
-          'medicalConditions': userProfile.medicalConditions,
-          'allergies': userProfile.allergies,
+          'fullName': userProfile.fullName ?? 'ไม่ระบุ',
+          'phone': userProfile.phone ?? 'ไม่ระบุ',
+          'bloodType': userProfile.bloodType ?? 'ไม่ระบุ',
+          'medicalConditions': userProfile.medicalConditions ?? 'ไม่ระบุ',
+          'allergies': userProfile.allergies ?? 'ไม่ระบุ',
         },
         'recipients': recipients,
       });
       debugPrint('SOS log saved for $senderEmail');
-    } catch (e) {
+    } on Exception catch (e) { // เปลี่ยนจาก catch (Object e) เป็น on Exception catch (e)
       debugPrint('Error in sendSos: $e');
       throw Exception('เกิดข้อผิดพลาดในการส่ง SOS: $e');
     }
@@ -151,8 +266,8 @@ class SosService {
       return snapshot.docs
           .map((doc) => SosLog.fromJson(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
-    } catch (e) {
-      print('Error loading SOS logs: $e');
+    } on Exception catch (e) { // เปลี่ยนจาก catch (Object e) เป็น on Exception catch (e)
+      debugPrint('Error loading SOS logs: $e');
       return [];
     }
   }
