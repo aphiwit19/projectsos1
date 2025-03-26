@@ -48,9 +48,11 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
     switch (category) {
       case 'เหตุด่วนเหตุร้าย':
         return Colors.red;
-      case 'กรณีเจ็บป่วย':
+      case 'การแพทย์และโรงพยาบาล':
         return Colors.orange;
-      case 'แจ้งเหตุจราจร-ขอความช่วยเหลือ':
+      case 'สาธารณูปโภค':
+        return Colors.green;
+      case 'ระหว่างเดินทาง':
         return Colors.blue;
       default:
         return Colors.grey;
