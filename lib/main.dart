@@ -6,6 +6,7 @@ import 'package:intl/intl.dart'; // เพิ่ม import สำหรับ in
 import 'package:intl/date_symbol_data_local.dart'; // เพิ่ม import สำหรับการเริ่มต้น locale
 import 'screens/splash_screen.dart';
 import 'scripts/seed_emergency_numbers.dart';
+import 'services/background_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,10 @@ void main() async {
   await initializeDateFormatting('th', null);
 
   await _requestPermissions();
+  
+  // เริ่มต้น background service
+  await initializeService();
+
   runApp(MyApp());
 }
 
