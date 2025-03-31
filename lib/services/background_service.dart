@@ -7,11 +7,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_service.dart';
 
-// ฟังก์ชันเริ่มต้น background service
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
 
-  // ตั้งค่าการแจ้งเตือนสำหรับ Foreground Service
   await service.configure(
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
@@ -29,15 +27,12 @@ Future<void> initializeService() async {
     ),
   );
 
-  // เริ่ม service
   await service.startService();
 }
 
-// ฟังก์ชันทำงานในพื้นหลัง
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   try {
-    // ตั้งค่าการแจ้งเตือนเมื่อ service เริ่มทำงาน
     if (service is AndroidServiceInstance) {
       await service.setAsForegroundService();
       await service.setForegroundNotificationInfo(
@@ -46,16 +41,13 @@ void onStart(ServiceInstance service) async {
       );
     }
 
-    // เริ่มต้น Firebase ผ่าน FirebaseService
     try {
       await FirebaseService.initializeFirebase();
       FirebaseService.configureFirestore();
     } catch (e) {
       print('Failed to initialize Firebase in background service: $e');
-      // ทำงานต่อไปแม้ว่า Firebase จะไม่สามารถเริ่มต้นได้
     }
 
-    // สร้าง Stream สำหรับการติดตามตำแหน่ง
     StreamSubscription<Position>? positionStream;
     
     // ฟังก์ชันสำหรับอัพเดทตำแหน่งใน Firestore
@@ -74,21 +66,6 @@ void onStart(ServiceInstance service) async {
                 .collection('current_location')
                 .doc('latest')
                 .set({
-              'latitude': position.latitude,
-              'longitude': position.longitude,
-              'timestamp': FieldValue.serverTimestamp(),
-              'accuracy': position.accuracy,
-              'speed': position.speed,
-              'heading': position.heading,
-              'mapLink': 'https://maps.google.com/?q=${position.latitude},${position.longitude}',
-            });
-
-            // บันทึกประวัติตำแหน่ง
-            await FirebaseFirestore.instance
-                .collection('Users')
-                .doc(userEmail)
-                .collection('location_history')
-                .add({
               'latitude': position.latitude,
               'longitude': position.longitude,
               'timestamp': FieldValue.serverTimestamp(),
@@ -154,7 +131,6 @@ void onStart(ServiceInstance service) async {
     });
   } catch (e) {
     print('Error in background service: $e');
-    // พยายามรักษา service ให้ทำงานต่อไปแม้จะมี error
     if (service is AndroidServiceInstance) {
       await service.setForegroundNotificationInfo(
         title: "AppSOS Service",
@@ -164,7 +140,6 @@ void onStart(ServiceInstance service) async {
   }
 }
 
-// สำหรับ iOS background (จำเป็นต้องมีแม้ว่าจะไม่ได้ใช้)
 @pragma('vm:entry-point')
 Future<bool> onIosBackground(ServiceInstance service) async {
   return true;

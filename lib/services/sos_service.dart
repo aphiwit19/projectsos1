@@ -55,7 +55,7 @@ class SosService {
       }
 
       final locationService = LocationService();
-      final position = await locationService.getCurrentLocation(context: null);
+      final position = await locationService.getBestLocation(context: null);
       String mapLink;
       if (position != null) {
         mapLink = 'https://maps.google.com/?q=${position.latitude},${position.longitude}';
