@@ -64,6 +64,26 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
       }
 
       List<SosLog> logs = await SosService().getSosLogs(userId);
+      
+      // กรองเฉพาะประวัติที่ส่ง SMS สำเร็จเท่านั้น
+      logs = logs.where((log) {
+        // ตรวจสอบจากฟิลด์ anySmsSent (ถ้ามี)
+        if (log.extraData.containsKey('anySmsSent')) {
+          return log.extraData['anySmsSent'] == true;
+        }
+        // ตรวจสอบจากฟิลด์ smsStatuses (ถ้ามี)
+        else if (log.extraData.containsKey('smsStatuses')) {
+          Map<String, dynamic> statuses = log.extraData['smsStatuses'];
+          return statuses.values.any((status) => status == 'success');
+        }
+        // สำหรับข้อมูลเก่าที่ใช้ฟิลด์ smsSent
+        else if (log.extraData.containsKey('smsSent')) {
+          return log.extraData['smsSent'] == true;
+        }
+        // ถ้าไม่มีข้อมูลสถานะ SMS ให้แสดงเสมอ (เผื่อมีประวัติเก่า)
+        return true;
+      }).toList();
+      
       setState(() {
         _sosLogs = logs;
         _isLoading = false;

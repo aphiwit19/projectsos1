@@ -33,7 +33,7 @@ class SmsService {
   final String _apiUsername = 'apirebmp';
   final String _apiPassword = 'Aphiwit@2546';
   final String _apiUrl = 'https://thsms.com/api/rest';
-  final String _sender = 'LUCA'; // ชื่อผู้ส่งที่ลงทะเบียนกับ THSMS
+  final String _sender = 'DirectSMS'; // ชื่อผู้ส่งที่ลงทะเบียนกับ THSMS
 
   // Token สำหรับ API V2 (เก็บไว้เผื่อต้องการใช้ในอนาคต)
   final String _apiTokenV2 = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC90aHNtcy5jb21cL21hbmFnZVwvYXBpLWtleSIsImlhdCI6MTc0MzQyNDM5MSwibmJmIjoxNzQzNDI1OTY4LCJqdGkiOiJrZ1htbmJVZFljR3J5YkY0Iiwic3ViIjoxMTE3MjYsInBydiI6IjIzYmQ1Yzg5NDlmNjAwYWRiMzllNzAxYzQwMDg3MmRiN2E1OTc2ZjcifQ.v3gfImvvTC3-A7sHaoXaHUXmkyElmZI8S4UYF_EiYzM';
@@ -81,12 +81,15 @@ class SmsService {
 
   // สร้างข้อความ SOS จากข้อมูลผู้ใช้และตำแหน่ง
   String createSosMessage(UserProfile userProfile, String mapLink) {
-    return 'ช่วยด้วย! ฉันต้องการความช่วยเหลือ\n'
-        'ข้อมูลผู้ใช้: ชื่อ: ${userProfile.fullName ?? 'ไม่ระบุ'}, '
-        'เบอร์: ${userProfile.phone ?? 'ไม่ระบุ'}, '
-        'กรุ๊ปเลือด: ${userProfile.bloodType ?? 'ไม่ระบุ'}, '
-        'อาการป่วย: ${userProfile.medicalConditions ?? 'ไม่ระบุ'}, '
-        'ภูมิแพ้: ${userProfile.allergies ?? 'ไม่ระบุ'}';
+    return '🚨 SOS! ฉุกเฉิน! ${userProfile.fullName ?? 'ผู้ใช้'} ต้องการความช่วยเหลือด่วน!\n\n'
+        '👤 ข้อมูลผู้ใช้:\n'
+        '- ชื่อ: ${userProfile.fullName ?? 'ไม่ระบุ'}\n'
+        '- เบอร์โทร: ${userProfile.phone ?? 'ไม่ระบุ'}\n'
+        '- กรุ๊ปเลือด: ${userProfile.bloodType ?? 'ไม่ระบุ'}\n'
+        '- อาการป่วย: ${userProfile.medicalConditions ?? 'ไม่ระบุ'}\n'
+        '- ภูมิแพ้: ${userProfile.allergies ?? 'ไม่ระบุ'}\n\n'
+        '📍 พิกัดปัจจุบัน: $mapLink\n\n'
+        'กดลิงก์ด้านบนเพื่อดูตำแหน่งบน Google Maps';
   }
   
   // ส่งข้อความ SOS ไปยังผู้ติดต่อฉุกเฉินทั้งหมด (แก้ไขให้ส่งคืน SmsResult)

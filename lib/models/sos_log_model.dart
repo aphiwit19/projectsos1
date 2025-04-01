@@ -9,6 +9,7 @@ class SosLog {
   final String message;
   final Map<String, dynamic> userInfo;
   final List<String> recipients; // เพิ่มฟิลด์นี้
+  final Map<String, dynamic> extraData; // เพิ่มฟิลด์นี้เพื่อเก็บข้อมูลเพิ่มเติม เช่น สถานะการส่ง SMS
 
   SosLog({
     required this.id,
@@ -18,9 +19,18 @@ class SosLog {
     required this.message,
     required this.userInfo,
     required this.recipients,
+    this.extraData = const {}, // ค่าเริ่มต้นเป็น map ว่าง
   });
 
   factory SosLog.fromJson(Map<String, dynamic> json, String id) {
+    // คัดแยกข้อมูลพื้นฐานและเก็บข้อมูลที่เหลือลงใน extraData
+    Map<String, dynamic> extraData = Map.from(json);
+    
+    // ลบข้อมูลพื้นฐานออกจาก extraData
+    ['timestamp', 'location', 'mapLink', 'message', 'userInfo', 'recipients'].forEach((key) {
+      extraData.remove(key);
+    });
+    
     return SosLog(
       id: id,
       timestamp: json['timestamp'] ?? Timestamp.now(),
@@ -29,11 +39,12 @@ class SosLog {
       message: json['message'] ?? '',
       userInfo: Map<String, dynamic>.from(json['userInfo'] ?? {}),
       recipients: List<String>.from(json['recipients'] ?? []),
+      extraData: extraData, // เก็บข้อมูลอื่นๆ ที่เหลือทั้งหมด
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    Map<String, dynamic> base = {
       'timestamp': timestamp,
       'location': location,
       'mapLink': mapLink,
@@ -41,5 +52,8 @@ class SosLog {
       'userInfo': userInfo,
       'recipients': recipients,
     };
+    
+    // รวมข้อมูลจาก extraData
+    return {...base, ...extraData};
   }
 }

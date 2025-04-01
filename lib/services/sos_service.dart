@@ -10,16 +10,19 @@ import 'emergency_contact_service.dart';
 import 'location_service.dart';
 import 'profile_service.dart';
 import 'sms_service.dart';
+import '../models/user_profile_model.dart';
+import 'firebase_service.dart';
 
 class SosService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseService.firestore;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final SmsService _smsService = SmsService();
 
   String _sanitizeName(String name) {
     return name
-        .replaceAll(RegExp(r'[/#\[\]\$]'), '_')
-        .replaceAll(' ', '_');
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s]'), '')
+        .replaceAll(RegExp(r'\s+'), '_');
   }
 
   Future<String?> _getEmailFromUserId(String userId) async {
@@ -30,53 +33,99 @@ class SosService {
           .limit(1)
           .get();
       if (query.docs.isEmpty) {
+        debugPrint('User not found for userId: $userId');
         return null;
       }
       return query.docs.first.id;
-    } on Exception catch (e) {
-      throw Exception('Error getting email: $e');
+    } catch (e) {
+      debugPrint('Error getting email from userId: $e');
+      return null;
     }
   }
 
-  Future<void> sendSos() async {
+  Future<Map<String, dynamic>> sendSos(String userId) async {
     try {
-      // 1. ตรวจสอบการล็อกอิน
-      final user = _auth.currentUser;
-      if (user == null) {
-        throw Exception('ไม่พบผู้ใช้ที่ล็อกอิน');
+      // 1. ตรวจสอบว่ามีการล็อกอินหรือไม่
+      if (userId.isEmpty) {
+        debugPrint('User not logged in');
+        return {
+          'success': false,
+          'message': 'กรุณาล็อกอินก่อนใช้งาน',
+        };
       }
 
-      // 2. ดึงข้อมูลอีเมลผู้ใช้
-      final senderEmail = await _getEmailFromUserId(user.uid);
+      // 2. ค้นหา email ของผู้ใช้
+      String? senderEmail = await _getEmailFromUserId(userId);
       if (senderEmail == null) {
-        throw Exception('ไม่พบอีเมลผู้ใช้');
+        debugPrint('Email not found for userId: $userId');
+        return {
+          'success': false,
+          'message': 'ไม่พบข้อมูลผู้ใช้ กรุณาล็อกอินใหม่',
+        };
+      }
+      debugPrint('Sender email: $senderEmail');
+
+      // 3. ดึงข้อมูลผู้ใช้
+      DocumentSnapshot userDoc = await _firestore.collection('Users').doc(senderEmail).get();
+      if (!userDoc.exists) {
+        debugPrint('User profile not found for email: $senderEmail');
+        return {
+          'success': false,
+          'message': 'ไม่พบข้อมูลโปรไฟล์ผู้ใช้',
+        };
       }
 
-      // 3. ดึงข้อมูลโปรไฟล์
-      final profileService = ProfileService();
-      final userProfile = await profileService.getProfile(senderEmail);
-      if (userProfile == null) {
-        throw Exception('ไม่พบข้อมูลโปรไฟล์ผู้ใช้');
-      }
+      UserProfile userProfile = UserProfile.fromJson(userDoc.data() as Map<String, dynamic>);
+      debugPrint('User profile loaded: ${userProfile.fullName}');
 
-      // 4. ดึงข้อมูลตำแหน่ง
-      final locationService = LocationService();
-      final position = await locationService.getBestLocation(context: null);
-      String mapLink;
-      if (position != null) {
-        mapLink = 'https://maps.google.com/?q=${position.latitude},${position.longitude}';
-      } else {
-        mapLink = 'ไม่สามารถดึงตำแหน่งได้ กรุณาเปิด GPS หรือให้สิทธิ์การเข้าถึงตำแหน่ง';
+      // 4. ดึงตำแหน่งปัจจุบัน
+      Position? position;
+      String mapLink = "ไม่สามารถระบุตำแหน่งได้";
+      try {
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+
+        if (permission == LocationPermission.whileInUse ||
+            permission == LocationPermission.always) {
+          position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.best,
+            timeLimit: const Duration(seconds: 10),
+          );
+          debugPrint('Position: ${position.latitude}, ${position.longitude}');
+          mapLink = "https://maps.google.com/?q=${position.latitude},${position.longitude}";
+        } else {
+          debugPrint('Location permission denied');
+        }
+      } catch (e) {
+        debugPrint('Error getting position: $e');
       }
 
       // 5. ดึงรายชื่อผู้ติดต่อฉุกเฉิน
-      final contactService = EmergencyContactService();
-      final contacts = await contactService.getEmergencyContacts(user.uid);
-      if (contacts.isEmpty) {
-        throw Exception('ไม่มีผู้ติดต่อฉุกเฉิน');
-      }
+      QuerySnapshot contactsSnapshot = await _firestore
+          .collection('Users')
+          .doc(senderEmail)
+          .collection('EmergencyContacts')
+          .get();
 
-      // 6. เตรียมข้อมูลสำหรับการส่ง SMS และบันทึก
+      List<EmergencyContact> contacts = contactsSnapshot.docs
+          .map((doc) => EmergencyContact.fromJson(doc.data() as Map<String, dynamic>))
+          .toList();
+
+      if (contacts.isEmpty) {
+        debugPrint('No emergency contacts found for email: $senderEmail');
+        return {
+          'success': false,
+          'message': 'ไม่พบผู้ติดต่อฉุกเฉิน กรุณาเพิ่มผู้ติดต่อก่อนส่ง SOS',
+        };
+      }
+      debugPrint('Found ${contacts.length} emergency contacts');
+
+      // 6. เตรียมข้อมูลสำหรับส่ง SMS
+      final timestamp = Timestamp.now();
+      final formattedTimestamp = DateFormat('yyyyMMddTHHmmss').format(timestamp.toDate());
+      
       final recipients = <String>[];
       final phoneNumbers = <String>[];
       for (var contact in contacts) {
@@ -85,9 +134,6 @@ class SosService {
         debugPrint('Processing contact: ${contact.phone}');
       }
 
-      final timestamp = Timestamp.now();
-      final formattedTimestamp = DateFormat('yyyyMMddTHHmmss').format(timestamp.toDate());
-      
       // 7. ส่ง SMS
       bool anySmsSent = false;
       Map<String, dynamic> smsStatuses = {};
@@ -187,7 +233,10 @@ class SosService {
       }
     } on Exception catch (e) {
       debugPrint('Error in sendSos: $e');
-      throw Exception('เกิดข้อผิดพลาดในการส่ง SOS: $e');
+      return {
+        'success': false,
+        'message': 'เกิดข้อผิดพลาดในการส่ง SOS: $e',
+      };
     }
   }
 

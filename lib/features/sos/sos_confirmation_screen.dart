@@ -83,7 +83,7 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
         _statusMessage = 'กำลังส่ง SMS ไปยังผู้ติดต่อฉุกเฉิน...';
       });
       
-      await SosService().sendSos();
+      await SosService().sendSos(userId);
 
       // แสดงข้อความแจ้งเตือน
       if (mounted) {
