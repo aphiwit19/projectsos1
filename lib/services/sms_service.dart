@@ -3,6 +3,31 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_profile_model.dart';
 
+// เพิ่ม enum เพื่อแสดงสถานะการส่ง SMS ที่ละเอียดมากขึ้น
+enum SmsStatus {
+  success,   // ส่งสำเร็จ
+  failed,    // ส่งไม่สำเร็จ
+  pending    // อยู่ระหว่างการส่ง/ไม่ทราบสถานะ
+}
+
+// สร้าง class เพื่อเก็บผลลัพธ์การส่ง SMS ที่มีรายละเอียดมากขึ้น
+class SmsResult {
+  final bool allSuccess;
+  final Map<String, SmsStatus> statuses; // เก็บสถานะของแต่ละเบอร์
+  final String errorMessage;
+
+  SmsResult({
+    required this.allSuccess,
+    required this.statuses,
+    this.errorMessage = '',
+  });
+
+  @override
+  String toString() {
+    return 'SmsResult(allSuccess: $allSuccess, statuses: $statuses, errorMessage: $errorMessage)';
+  }
+}
+
 class SmsService {
   // ข้อมูลสำหรับเชื่อมต่อกับ API THSMS (V1)
   final String _apiUsername = 'apirebmp';
@@ -57,7 +82,6 @@ class SmsService {
   // สร้างข้อความ SOS จากข้อมูลผู้ใช้และตำแหน่ง
   String createSosMessage(UserProfile userProfile, String mapLink) {
     return 'ช่วยด้วย! ฉันต้องการความช่วยเหลือ\n'
-        'ตำแหน่ง: $mapLink\n'
         'ข้อมูลผู้ใช้: ชื่อ: ${userProfile.fullName ?? 'ไม่ระบุ'}, '
         'เบอร์: ${userProfile.phone ?? 'ไม่ระบุ'}, '
         'กรุ๊ปเลือด: ${userProfile.bloodType ?? 'ไม่ระบุ'}, '
@@ -65,8 +89,8 @@ class SmsService {
         'ภูมิแพ้: ${userProfile.allergies ?? 'ไม่ระบุ'}';
   }
   
-  // ส่งข้อความ SOS ไปยังผู้ติดต่อฉุกเฉินทั้งหมด
-  Future<bool> sendSosMessage(UserProfile userProfile, String mapLink, List<String> phoneNumbers) async {
+  // ส่งข้อความ SOS ไปยังผู้ติดต่อฉุกเฉินทั้งหมด (แก้ไขให้ส่งคืน SmsResult)
+  Future<SmsResult> sendSosMessage(UserProfile userProfile, String mapLink, List<String> phoneNumbers) async {
     try {
       if (phoneNumbers.isEmpty) {
         throw Exception('ไม่มีเบอร์โทรศัพท์ผู้ติดต่อฉุกเฉิน');
@@ -76,17 +100,25 @@ class SmsService {
       return await sendBulkSms(phoneNumbers, messageText);
     } catch (e) {
       debugPrint('Error sending SOS message: $e');
-      throw Exception('เกิดข้อผิดพลาดในการส่งข้อความ SOS: $e');
+      return SmsResult(
+        allSuccess: false,
+        statuses: Map.fromIterable(
+          phoneNumbers,
+          key: (phone) => phone,
+          value: (_) => SmsStatus.failed
+        ),
+        errorMessage: 'เกิดข้อผิดพลาดในการส่งข้อความ SOS: $e',
+      );
     }
   }
 
-  // เมธอดสำหรับส่ง SMS ไปยังหมายเลขเดียว
-  Future<bool> sendSms(String phoneNumber, String message) async {
+  // เมธอดสำหรับส่ง SMS ไปยังหมายเลขเดียว (แก้ไขให้ส่งคืน SmsResult)
+  Future<SmsResult> sendSms(String phoneNumber, String message) async {
     return sendBulkSms([phoneNumber], message);
   }
 
-  // เมธอดสำหรับส่ง SMS แบบกลุ่ม (API V1)
-  Future<bool> sendBulkSms(List<String> phoneNumbers, String message) async {
+  // เมธอดสำหรับส่ง SMS แบบกลุ่ม (API V1) (แก้ไขให้ส่งคืน SmsResult)
+  Future<SmsResult> sendBulkSms(List<String> phoneNumbers, String message) async {
     try {
       if (phoneNumbers.isEmpty) {
         throw Exception('ไม่มีหมายเลขโทรศัพท์ที่จะส่ง');
@@ -94,6 +126,7 @@ class SmsService {
 
       bool allSuccess = true;
       String errorMessage = '';
+      Map<String, SmsStatus> statuses = {};
       
       for (final recipient in phoneNumbers) {
         // ตรวจสอบและแก้ไขรูปแบบเบอร์โทรศัพท์
@@ -125,15 +158,24 @@ class SmsService {
           // THSMS ตอบกลับเป็น XML
           if (response.body.contains('<status>success</status>')) {
             debugPrint('ส่ง SMS ไปยัง $formattedPhone สำเร็จ!');
+            statuses[recipient] = SmsStatus.success;
           } else {
             debugPrint('ส่ง SMS ไปยัง $formattedPhone ล้มเหลว: ${response.body}');
             allSuccess = false;
             errorMessage = response.body;
+            
+            // ตรวจสอบว่าเป็นสถานะกำลังส่งหรือล้มเหลว
+            if (response.body.contains('queue') || response.body.contains('pending')) {
+              statuses[recipient] = SmsStatus.pending;
+            } else {
+              statuses[recipient] = SmsStatus.failed;
+            }
           }
         } else {
           debugPrint('เกิดข้อผิดพลาดในการส่ง SMS ไปยัง $formattedPhone - รหัสสถานะ: ${response.statusCode}');
           allSuccess = false;
           errorMessage = 'รหัสสถานะ: ${response.statusCode}, ข้อมูล: ${response.body}';
+          statuses[recipient] = SmsStatus.failed;
         }
       }
       
@@ -141,10 +183,22 @@ class SmsService {
         debugPrint('บางข้อความส่งไม่สำเร็จ: $errorMessage');
       }
       
-      return allSuccess;
+      return SmsResult(
+        allSuccess: allSuccess,
+        statuses: statuses,
+        errorMessage: errorMessage,
+      );
     } catch (e) {
       debugPrint('Error sending SMS: $e');
-      throw Exception('เกิดข้อผิดพลาดในการส่ง SMS: $e');
+      return SmsResult(
+        allSuccess: false,
+        statuses: Map.fromIterable(
+          phoneNumbers, 
+          key: (phone) => phone,
+          value: (_) => SmsStatus.failed
+        ),
+        errorMessage: 'เกิดข้อผิดพลาดในการส่ง SMS: $e',
+      );
     }
   }
 } 

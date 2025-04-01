@@ -1,7 +1,6 @@
 // lib/features/emergency_contacts/add_emergency_contact_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../services/profile_service.dart';
 
 class AddEmergencyContactScreen extends StatefulWidget {
   final Function(String, String) onContactAdded;
@@ -57,106 +56,23 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen> {
       return;
     }
 
-    // เริ่มการตรวจสอบเบอร์
+    // เริ่มการเพิ่มผู้ติดต่อ
     setState(() {
       _isLoading = true;
     });
 
-    // ตรวจสอบว่าเบอร์นี้สมัครใช้งานแอปแล้วหรือไม่
-    final profileService = ProfileService();
-    final userEmail = await profileService.findUserByPhone(phone);
-
-    if (userEmail == null) {
-      // ถ้าเบอร์นี้ไม่มีในระบบ
-      setState(() {
-        _isLoading = false;
-      });
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          elevation: 5,
-          backgroundColor: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ไอคอนเตือน
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.red.withOpacity(0.1),
-                  ),
-                  child: const Icon(
-                    Icons.warning_rounded,
-                    color: Colors.red,
-                    size: 40,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // หัวข้อ
-                const Text(
-                  'ไม่พบผู้ใช้',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                // เนื้อหา
-                Text(
-                  'ไม่พบผู้ใช้ที่มีเบอร์ $phone ในระบบ\nกรุณาให้ผู้ติดต่อสมัครใช้งานแอปก่อน',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 30),
-                // ปุ่มตกลง
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      'ตกลง',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.white,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      elevation: 5,
-                      shadowColor: Colors.black26,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-      return;
-    }
-
-    // ถ้าเบอร์นี้มีในระบบ ให้เพิ่มผู้ติดต่อ
+    // เพิ่มผู้ติดต่อได้ทันที โดยไม่ต้องตรวจสอบว่ามีบัญชีในระบบหรือไม่
     try {
       widget.onContactAdded(name, phone);
       Navigator.pop(context);
+      
+      // แสดงข้อความเมื่อเพิ่มสำเร็จ
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('เพิ่มผู้ติดต่อฉุกเฉินเรียบร้อยแล้ว'),
+          backgroundColor: Color.fromRGBO(76, 175, 80, 1.0),
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
@@ -209,6 +125,35 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                ),
+                child: Column(
+                  children: const [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.blue,
+                      size: 24,
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      "คุณสามารถเพิ่มผู้ติดต่อฉุกเฉินได้โดยไม่จำเป็นต้องเป็นผู้ใช้งานแอปพลิเคชัน เมื่อคุณกดปุ่ม SOS ระบบจะส่ง SMS แจ้งเตือนไปยังเบอร์โทรศัพท์นี้",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.blue,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 20),
               Container(
                 decoration: BoxDecoration(

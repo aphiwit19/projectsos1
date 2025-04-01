@@ -36,25 +36,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   }
 
   Future<String> _getContactFullName(String contactPhone) async {
-    try {
-      print('Fetching fullName for phone: $contactPhone');
-      final userDoc = await FirebaseFirestore.instance
-          .collection('Users')
-          .where('phone', isEqualTo: contactPhone)
-          .limit(1)
-          .get();
-      if (userDoc.docs.isNotEmpty) {
-        final fullName = userDoc.docs.first.data()['fullName'] ?? contactPhone;
-        print('Found fullName: $fullName for phone: $contactPhone');
-        return fullName;
-      } else {
-        print('No user found for phone: $contactPhone');
-        return contactPhone;
-      }
-    } catch (e) {
-      print('Error fetching contact fullName for phone $contactPhone: $e');
-      return contactPhone;
-    }
+    return contactPhone;
   }
 
   Future<void> _loadUserIdAndContacts() async {
@@ -109,68 +91,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   }
 
   Future<void> _updateEmergencyContactIds() async {
-    try {
-      print('Starting updateEmergencyContactIds for userId: $userId');
-      final user = await FirebaseFirestore.instance
-          .collection('Users')
-          .where('uid', isEqualTo: userId)
-          .limit(1)
-          .get();
-      if (user.docs.isEmpty) {
-        print('No user found for userId: $userId');
-        return;
-      }
-      final email = user.docs.first.id;
-
-      final contactsSnapshot = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(email)
-          .collection('EmergencyContacts')
-          .get();
-
-      for (var doc in contactsSnapshot.docs) {
-        final data = doc.data();
-        final phone = data['phone'] as String? ?? '';
-        final name = data['name'] as String? ?? '';
-        final oldContactId = doc.id;
-
-        if (phone.isNotEmpty) {
-          final fullName = await _getContactFullName(phone);
-          String timestamp = oldContactId.split('_').last;
-          String newContactId = 'contact_${fullName.toLowerCase().replaceAll(' ', '_')}_$timestamp';
-
-          if (newContactId != oldContactId) {
-            await FirebaseFirestore.instance
-                .collection('Users')
-                .doc(email)
-                .collection('EmergencyContacts')
-                .doc(newContactId)
-                .set({
-              'contactId': newContactId,
-              'userId': userId,
-              'name': name,
-              'phone': phone,
-            });
-
-            await FirebaseFirestore.instance
-                .collection('Users')
-                .doc(email)
-                .collection('EmergencyContacts')
-                .doc(oldContactId)
-                .delete();
-
-            print('Updated contactId from $oldContactId to $newContactId');
-          }
-        }
-      }
-
-      final updatedContacts = await _contactService.getEmergencyContacts(userId!);
-      setState(() {
-        contacts = updatedContacts;
-      });
-    } catch (e) {
-      print('Error updating emergency contact IDs: $e');
-    }
+    // ฟังก์ชันนี้ไม่จำเป็นต้องทำงานอีกต่อไปเนื่องจากเราไม่ได้อัพเดต contactId ตามฐานข้อมูลอีกแล้ว
+    // แต่เราจะเก็บไว้เพื่อความเข้ากันได้กับโค้ดเดิม
+    return;
   }
 
   void _addContact() {
@@ -184,8 +107,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
           onContactAdded: (name, phone) async {
             try {
               String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-              final fullName = await _getContactFullName(phone);
-              String contactId = 'contact_${fullName.toLowerCase().replaceAll(' ', '_')}_$timestamp';
+              String contactId = 'contact_${name.toLowerCase().replaceAll(' ', '_')}_$timestamp';
               final newContact = EmergencyContact(
                 contactId: contactId,
                 userId: userId!,
@@ -221,10 +143,9 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
           onContactUpdated: (name, phone) async {
             try {
               String newContactId = contactId;
-              if (phone != currentPhone) {
+              if (name != currentName || phone != currentPhone) {
                 String timestamp = contactId.split('_').last;
-                final fullName = await _getContactFullName(phone);
-                newContactId = 'contact_${fullName.toLowerCase().replaceAll(' ', '_')}_$timestamp';
+                newContactId = 'contact_${name.toLowerCase().replaceAll(' ', '_')}_$timestamp';
               }
 
               final updatedContact = EmergencyContact(
@@ -516,7 +437,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
           ),
           const SizedBox(height: 15),
           Text(
-            "เพิ่มผู้ติดต่อฉุกเฉินโดยการใส่ชื่อและเบอร์โทรศัพท์",
+            "เพิ่มผู้ติดต่อฉุกเฉินได้ทันทีโดยระบบจะส่ง SMS ไปยังเบอร์โทรศัพท์นี้เมื่อคุณกดปุ่ม SOS",
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
