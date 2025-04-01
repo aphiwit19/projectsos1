@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/emergency_contact_model.dart';
-import '../../screens/chat_screen.dart';
 import 'add_emergency_contact_screen.dart';
 import 'edit_emergency_contact_screen.dart';
 import '../../screens/home_screen.dart';
@@ -17,7 +16,7 @@ class EmergencyContactsScreen extends StatefulWidget {
   const EmergencyContactsScreen({Key? key}) : super(key: key);
 
   @override
-  State<EmergencyContactsScreen> createState() => _EmergencyContactsScreenState();
+  _EmergencyContactsScreenState createState() => _EmergencyContactsScreenState();
 }
 
 class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
@@ -27,12 +26,13 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
   String? userId;
   bool isLoading = true;
   bool hasError = false;
+  int _currentIndex = 2;
 
   @override
   void initState() {
     super.initState();
     _loadUserIdAndContacts();
-    _updateEmergencyContactIds(); // เรียกอัตโนมัติเมื่อเปิดหน้า
+    _updateEmergencyContactIds();
   }
 
   Future<String> _getContactFullName(String contactPhone) async {
@@ -99,8 +99,6 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
       } else {
         print('Contacts found: ${loadedContacts.length} contacts');
       }
-
-      await _updateChatContactNames();
     } catch (e) {
       print('Error loading contacts: $e');
       setState(() {
@@ -110,54 +108,6 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
     }
   }
 
-  Future<void> _updateChatContactNames() async {
-    try {
-      print('Starting updateChatContactNames for userId: $userId');
-      final user = await FirebaseFirestore.instance
-          .collection('Users')
-          .where('uid', isEqualTo: userId)
-          .limit(1)
-          .get();
-      if (user.docs.isEmpty) {
-        print('No user found for userId: $userId');
-        return;
-      }
-      final email = user.docs.first.id;
-      print('User email: $email');
-
-      final chatsSnapshot = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(email)
-          .collection('chats')
-          .get();
-      print('Found ${chatsSnapshot.docs.length} chats');
-
-      for (var chatDoc in chatsSnapshot.docs) {
-        final data = chatDoc.data();
-        final contactPhone = data['contactPhone'] as String? ?? '';
-        print('Processing chat: ${chatDoc.id}, contactPhone: $contactPhone');
-        if (contactPhone.isNotEmpty) {
-          final fullName = await _getContactFullName(contactPhone);
-          print('Updating chat ${chatDoc.id} with contactName: $fullName');
-          await FirebaseFirestore.instance
-              .collection('Users')
-              .doc(email)
-              .collection('chats')
-              .doc(chatDoc.id)
-              .update({
-            'contactName': fullName,
-          });
-        } else {
-          print('No contactPhone found in chat: ${chatDoc.id}');
-        }
-      }
-      print('Finished updateChatContactNames');
-    } catch (e) {
-      print('Error updating chat contact names: $e');
-    }
-  }
-
-  // ฟังก์ชันเพื่ออัปเดต contactId อัตโนมัติ
   Future<void> _updateEmergencyContactIds() async {
     try {
       print('Starting updateEmergencyContactIds for userId: $userId');
@@ -190,7 +140,6 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
           String newContactId = 'contact_${fullName.toLowerCase().replaceAll(' ', '_')}_$timestamp';
 
           if (newContactId != oldContactId) {
-            // สร้างเอกสารใหม่
             await FirebaseFirestore.instance
                 .collection('Users')
                 .doc(email)
@@ -203,7 +152,6 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
               'phone': phone,
             });
 
-            // ลบเอกสารเก่า
             await FirebaseFirestore.instance
                 .collection('Users')
                 .doc(email)
@@ -211,32 +159,11 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                 .doc(oldContactId)
                 .delete();
 
-            // อัปเดต contactName ใน chats
-            String chatId = 'chat_${phone.replaceAll(RegExp(r'[/#\[\]\$]'), '_')}';
-            final chatDoc = await FirebaseFirestore.instance
-                .collection('Users')
-                .doc(email)
-                .collection('chats')
-                .doc(chatId)
-                .get();
-
-            if (chatDoc.exists) {
-              await FirebaseFirestore.instance
-                  .collection('Users')
-                  .doc(email)
-                  .collection('chats')
-                  .doc(chatId)
-                  .update({
-                'contactName': fullName,
-              });
-            }
-
             print('Updated contactId from $oldContactId to $newContactId');
           }
         }
       }
 
-      // โหลดรายชื่อผู้ติดต่อใหม่หลังอัปเดต
       final updatedContacts = await _contactService.getEmergencyContacts(userId!);
       setState(() {
         contacts = updatedContacts;
@@ -259,7 +186,6 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
               String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
               final fullName = await _getContactFullName(phone);
               String contactId = 'contact_${fullName.toLowerCase().replaceAll(' ', '_')}_$timestamp';
-              String chatId = 'chat_${phone.replaceAll(RegExp(r'[/#\[\]\$]'), '_')}';
               final newContact = EmergencyContact(
                 contactId: contactId,
                 userId: userId!,
@@ -268,46 +194,6 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
               );
 
               await _contactService.addContact(userId!, newContact);
-
-              final user = await FirebaseFirestore.instance
-                  .collection('Users')
-                  .where('uid', isEqualTo: userId)
-                  .limit(1)
-                  .get();
-              final email = user.docs.first.id;
-
-              final chatDoc = await FirebaseFirestore.instance
-                  .collection('Users')
-                  .doc(email)
-                  .collection('chats')
-                  .doc(chatId)
-                  .get();
-
-              if (chatDoc.exists) {
-                await FirebaseFirestore.instance
-                    .collection('Users')
-                    .doc(email)
-                    .collection('chats')
-                    .doc(chatId)
-                    .update({
-                  'contactPhone': phone,
-                  'contactName': fullName,
-                });
-              } else {
-                await FirebaseFirestore.instance
-                    .collection('Users')
-                    .doc(email)
-                    .collection('chats')
-                    .doc(chatId)
-                    .set({
-                  'contactPhone': phone,
-                  'contactName': fullName,
-                  'lastMessage': '',
-                  'lastTimestamp': Timestamp.now(),
-                  'messages': [],
-                  'lastReadTimestamp': null,
-                }, SetOptions(merge: true));
-              }
 
               setState(() {
                 contacts.add(newContact);
@@ -387,48 +273,6 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                 await _contactService.updateContact(userId!, updatedContact);
               }
 
-              final fullName = await _getContactFullName(phone);
-              String chatId = 'chat_${phone.replaceAll(RegExp(r'[/#\[\]\$]'), '_')}';
-              final user = await FirebaseFirestore.instance
-                  .collection('Users')
-                  .where('uid', isEqualTo: userId)
-                  .limit(1)
-                  .get();
-              final email = user.docs.first.id;
-
-              final chatDoc = await FirebaseFirestore.instance
-                  .collection('Users')
-                  .doc(email)
-                  .collection('chats')
-                  .doc(chatId)
-                  .get();
-
-              if (chatDoc.exists) {
-                await FirebaseFirestore.instance
-                    .collection('Users')
-                    .doc(email)
-                    .collection('chats')
-                    .doc(chatId)
-                    .update({
-                  'contactPhone': phone,
-                  'contactName': fullName,
-                });
-              } else {
-                await FirebaseFirestore.instance
-                    .collection('Users')
-                    .doc(email)
-                    .collection('chats')
-                    .doc(chatId)
-                    .set({
-                  'contactPhone': phone,
-                  'contactName': fullName,
-                  'lastMessage': '',
-                  'lastTimestamp': Timestamp.now(),
-                  'messages': [],
-                  'lastReadTimestamp': null,
-                }, SetOptions(merge: true));
-              }
-
               setState(() {
                 int index = contacts.indexWhere((contact) => contact.contactId == contactId);
                 if (index != -1) {
@@ -487,34 +331,6 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                       try {
                         await _contactService.deleteContact(userId!, contactId);
 
-                        final fullName = await _getContactFullName(phone);
-
-                        String chatId = 'chat_${phone.replaceAll(RegExp(r'[/#\[\]\$]'), '_')}';
-                        final user = await FirebaseFirestore.instance
-                            .collection('Users')
-                            .where('uid', isEqualTo: userId)
-                            .limit(1)
-                            .get();
-                        final email = user.docs.first.id;
-
-                        final chatDoc = await FirebaseFirestore.instance
-                            .collection('Users')
-                            .doc(email)
-                            .collection('chats')
-                            .doc(chatId)
-                            .get();
-
-                        if (chatDoc.exists) {
-                          await FirebaseFirestore.instance
-                              .collection('Users')
-                              .doc(email)
-                              .collection('chats')
-                              .doc(chatId)
-                              .update({
-                            'contactName': fullName,
-                          });
-                        }
-
                         setState(() {
                           contacts.removeWhere((contact) => contact.contactId == contactId);
                         });
@@ -541,6 +357,34 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
         );
       },
     );
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    switch (index) {
+      case 0:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+        break;
+      case 1:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const EmergencyNumbersScreen()),
+        );
+        break;
+      case 2:
+        break;
+      case 3:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+        );
+        break;
+    }
   }
 
   @override
@@ -602,37 +446,8 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
           ? _buildEmptyState()
           : _buildContactList(),
       bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: 3,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => HomeScreen()),
-              );
-              break;
-            case 1:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => ChatScreen()),
-              );
-              break;
-            case 2:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
-              );
-              break;
-            case 3:
-              break;
-            case 4:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => ProfileScreen()),
-              );
-              break;
-          }
-        },
+        currentIndex: _currentIndex,
+        onTap: _onItemTapped,
       ),
     );
   }

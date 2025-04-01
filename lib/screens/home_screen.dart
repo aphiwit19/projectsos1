@@ -1,3 +1,4 @@
+// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import '../services/fall_detection_service.dart';
 import '../features/sos/sos_confirmation_screen.dart';
@@ -5,15 +6,17 @@ import '../features/emergency_numbers/emergency_numbers_screen.dart';
 import '../features/emergency_contacts/emergency_contacts_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
-import 'chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   late FallDetectionService _fallDetectionService;
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -40,6 +43,34 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  void _onItemTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    switch (index) {
+      case 0:
+        break;
+      case 1:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const EmergencyNumbersScreen()),
+        );
+        break;
+      case 2:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const EmergencyContactsScreen()),
+        );
+        break;
+      case 3:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+        );
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,16 +93,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: GestureDetector(
               onTap: () {
-                try {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => SosConfirmationScreen()),
-                  ).then((value) {
-                    print("Returned to HomeScreen from SosConfirmationScreen");
-                  });
-                } catch (e) {
-                  print("Error navigating to SosConfirmationScreen: $e");
-                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SosConfirmationScreen()),
+                ).then((value) {
+                  print("Returned to HomeScreen from SosConfirmationScreen");
+                });
               },
               child: Center(
                 child: Stack(
@@ -130,43 +157,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: 0,
-        onTap: (index) {
-          try {
-            switch (index) {
-              case 0:
-                break;
-              case 1:
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ChatScreen()),
-                );
-                break;
-              case 2:
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
-                );
-                break;
-              case 3:
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => EmergencyContactsScreen()),
-                );
-                break;
-              case 4:
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfileScreen()),
-                );
-                break;
-              default:
-                break;
-            }
-          } catch (e) {
-            print("Error navigating: $e");
-          }
-        },
+        currentIndex: _currentIndex,
+        onTap: _onItemTapped,
       ),
     );
   }

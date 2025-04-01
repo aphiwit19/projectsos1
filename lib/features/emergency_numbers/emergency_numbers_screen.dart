@@ -1,7 +1,7 @@
+// lib/features/emergency_numbers/emergency_numbers_screen.dart
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../screens/chat_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../widgets/custom_bottom_navigation_bar.dart';
 import '../emergency_contacts/emergency_contacts_screen.dart';
@@ -10,6 +10,8 @@ import '../../services/emergency_number_service.dart';
 import '../../models/emergency_number_model.dart';
 
 class EmergencyNumbersScreen extends StatefulWidget {
+  const EmergencyNumbersScreen({Key? key}) : super(key: key);
+
   @override
   _EmergencyNumbersScreenState createState() => _EmergencyNumbersScreenState();
 }
@@ -18,6 +20,7 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
   final EmergencyNumberService _emergencyNumberService = EmergencyNumberService();
   List<EmergencyNumber> emergencyNumbers = [];
   List<String> categories = [];
+  int _currentIndex = 1;
 
   @override
   void initState() {
@@ -102,7 +105,6 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
 
           if (confirm == true) {
             final Uri dialUri = Uri.parse('tel:$number');
-
             try {
               print('Attempting to open dialer: $dialUri');
               if (await canLaunchUrl(dialUri)) {
@@ -232,6 +234,34 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
     );
   }
 
+  void _onItemTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    switch (index) {
+      case 0:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+        break;
+      case 1:
+        break;
+      case 2:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const EmergencyContactsScreen()),
+        );
+        break;
+      case 3:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+        );
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -252,37 +282,8 @@ class _EmergencyNumbersScreenState extends State<EmergencyNumbersScreen> {
       ),
       body: _buildEmergencyNumberList(),
       bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: 2,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => HomeScreen()),
-              );
-              break;
-            case 1:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => ChatScreen()),
-              );
-              break;
-            case 2:
-              break;
-            case 3:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => EmergencyContactsScreen()),
-              );
-              break;
-            case 4:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => ProfileScreen()),
-              );
-              break;
-          }
-        },
+        currentIndex: _currentIndex,
+        onTap: _onItemTapped,
       ),
     );
   }

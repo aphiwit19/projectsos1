@@ -1,7 +1,6 @@
 // lib/features/profile/profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import '../../screens/chat_screen.dart';
 import '../../screens/history_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../widgets/custom_bottom_navigation_bar.dart';
@@ -14,6 +13,8 @@ import '../../services/profile_service.dart';
 import '../../models/user_profile_model.dart';
 
 class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({Key? key}) : super(key: key);
+
   @override
   _ProfileScreenState createState() => _ProfileScreenState();
 }
@@ -30,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userEmail = 'ไม่ระบุ';
   final AuthService _authService = AuthService();
   final ProfileService _profileService = ProfileService();
+  int _currentIndex = 3;
 
   @override
   void initState() {
@@ -244,6 +246,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
         context,
         MaterialPageRoute(builder: (context) => LoginScreen()),
       );
+    }
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    switch (index) {
+      case 0:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+        break;
+      case 1:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const EmergencyNumbersScreen()),
+        );
+        break;
+      case 2:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const EmergencyContactsScreen()),
+        );
+        break;
+      case 3:
+        break;
     }
   }
 
@@ -556,37 +586,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: 4,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => HomeScreen()),
-              );
-              break;
-            case 1:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => ChatScreen()),
-              );
-              break;
-            case 2:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => EmergencyNumbersScreen()),
-              );
-              break;
-            case 3:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => EmergencyContactsScreen()),
-              );
-              break;
-            case 4:
-              break;
-          }
-        },
+        currentIndex: _currentIndex,
+        onTap: _onItemTapped,
       ),
     );
   }
