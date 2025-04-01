@@ -1,0 +1,150 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import '../models/user_profile_model.dart';
+
+class SmsService {
+  // ข้อมูลสำหรับเชื่อมต่อกับ API THSMS (V1)
+  final String _apiUsername = 'apirebmp';
+  final String _apiPassword = 'Aphiwit@2546';
+  final String _apiUrl = 'https://thsms.com/api/rest';
+  final String _sender = 'LUCA'; // ชื่อผู้ส่งที่ลงทะเบียนกับ THSMS
+
+  // Token สำหรับ API V2 (เก็บไว้เผื่อต้องการใช้ในอนาคต)
+  final String _apiTokenV2 = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC90aHNtcy5jb21cL21hbmFnZVwvYXBpLWtleSIsImlhdCI6MTc0MzQyNDM5MSwibmJmIjoxNzQzNDI1OTY4LCJqdGkiOiJrZ1htbmJVZFljR3J5YkY0Iiwic3ViIjoxMTE3MjYsInBydiI6IjIzYmQ1Yzg5NDlmNjAwYWRiMzllNzAxYzQwMDg3MmRiN2E1OTc2ZjcifQ.v3gfImvvTC3-A7sHaoXaHUXmkyElmZI8S4UYF_EiYzM';
+
+  // เมธอดสำหรับเช็คเครดิต
+  Future<Map<String, dynamic>> checkCredit() async {
+    try {
+      // ใช้ API V1 สำหรับตรวจสอบเครดิต
+      final String creditUrl = '$_apiUrl?username=$_apiUsername&password=$_apiPassword&method=credit';
+      
+      debugPrint('ทดสอบการเชื่อมต่อ API: $creditUrl');
+      
+      final response = await http.get(Uri.parse(creditUrl));
+      
+      debugPrint('รหัสการตอบกลับ: ${response.statusCode}');
+      debugPrint('ข้อมูลการตอบกลับ: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        // ตรวจสอบว่าการตอบกลับเป็น XML และมีสถานะ success หรือไม่
+        if (response.body.contains('<status>success</status>')) {
+          // แยกค่าเครดิตจาก XML
+          final RegExp creditRegex = RegExp(r'<amount>(.*?)</amount>');
+          final match = creditRegex.firstMatch(response.body);
+          
+          String credit = 'ไม่ทราบ';
+          if (match != null && match.groupCount >= 1) {
+            credit = match.group(1) ?? 'ไม่ทราบ';
+          }
+          
+          return {
+            'credit': credit,
+            'balance': credit,
+          };
+        } else {
+          throw Exception('การเชื่อมต่อล้มเหลว: ${response.body}');
+        }
+      } else {
+        throw Exception('การเชื่อมต่อล้มเหลว (${response.statusCode}): ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error checking credit: $e');
+      throw Exception('เกิดข้อผิดพลาดในการตรวจสอบเครดิต: $e');
+    }
+  }
+
+  // สร้างข้อความ SOS จากข้อมูลผู้ใช้และตำแหน่ง
+  String createSosMessage(UserProfile userProfile, String mapLink) {
+    return 'ช่วยด้วย! ฉันต้องการความช่วยเหลือ\n'
+        'ตำแหน่ง: $mapLink\n'
+        'ข้อมูลผู้ใช้: ชื่อ: ${userProfile.fullName ?? 'ไม่ระบุ'}, '
+        'เบอร์: ${userProfile.phone ?? 'ไม่ระบุ'}, '
+        'กรุ๊ปเลือด: ${userProfile.bloodType ?? 'ไม่ระบุ'}, '
+        'อาการป่วย: ${userProfile.medicalConditions ?? 'ไม่ระบุ'}, '
+        'ภูมิแพ้: ${userProfile.allergies ?? 'ไม่ระบุ'}';
+  }
+  
+  // ส่งข้อความ SOS ไปยังผู้ติดต่อฉุกเฉินทั้งหมด
+  Future<bool> sendSosMessage(UserProfile userProfile, String mapLink, List<String> phoneNumbers) async {
+    try {
+      if (phoneNumbers.isEmpty) {
+        throw Exception('ไม่มีเบอร์โทรศัพท์ผู้ติดต่อฉุกเฉิน');
+      }
+      
+      String messageText = createSosMessage(userProfile, mapLink);
+      return await sendBulkSms(phoneNumbers, messageText);
+    } catch (e) {
+      debugPrint('Error sending SOS message: $e');
+      throw Exception('เกิดข้อผิดพลาดในการส่งข้อความ SOS: $e');
+    }
+  }
+
+  // เมธอดสำหรับส่ง SMS ไปยังหมายเลขเดียว
+  Future<bool> sendSms(String phoneNumber, String message) async {
+    return sendBulkSms([phoneNumber], message);
+  }
+
+  // เมธอดสำหรับส่ง SMS แบบกลุ่ม (API V1)
+  Future<bool> sendBulkSms(List<String> phoneNumbers, String message) async {
+    try {
+      if (phoneNumbers.isEmpty) {
+        throw Exception('ไม่มีหมายเลขโทรศัพท์ที่จะส่ง');
+      }
+
+      bool allSuccess = true;
+      String errorMessage = '';
+      
+      for (final recipient in phoneNumbers) {
+        // ตรวจสอบและแก้ไขรูปแบบเบอร์โทรศัพท์
+        String formattedPhone = recipient.replaceAll('-', '').replaceAll(' ', '');
+        if (formattedPhone.startsWith('+')) {
+          formattedPhone = formattedPhone.substring(1);
+        } else if (formattedPhone.startsWith('0')) {
+          formattedPhone = '66${formattedPhone.substring(1)}';
+        }
+        
+        debugPrint('กำลังส่ง SMS ไปยัง: $formattedPhone');
+        debugPrint('ข้อความ: $message');
+        debugPrint('ผู้ส่ง: $_sender');
+        
+        // สร้าง URL สำหรับส่ง SMS ตามเอกสาร V1
+        final String encodedMessage = Uri.encodeComponent(message);
+        final String sendUrl = '$_apiUrl?username=$_apiUsername&password=$_apiPassword&method=send&from=$_sender&to=$formattedPhone&message=$encodedMessage';
+        
+        debugPrint('URL การส่ง: $sendUrl');
+        
+        // ส่งคำขอไปยัง API
+        final response = await http.get(Uri.parse(sendUrl));
+        
+        // พิมพ์รายละเอียดการตอบกลับจาก API
+        debugPrint('รหัสการตอบกลับ: ${response.statusCode}');
+        debugPrint('ข้อมูลการตอบกลับ: ${response.body}');
+        
+        if (response.statusCode == 200) {
+          // THSMS ตอบกลับเป็น XML
+          if (response.body.contains('<status>success</status>')) {
+            debugPrint('ส่ง SMS ไปยัง $formattedPhone สำเร็จ!');
+          } else {
+            debugPrint('ส่ง SMS ไปยัง $formattedPhone ล้มเหลว: ${response.body}');
+            allSuccess = false;
+            errorMessage = response.body;
+          }
+        } else {
+          debugPrint('เกิดข้อผิดพลาดในการส่ง SMS ไปยัง $formattedPhone - รหัสสถานะ: ${response.statusCode}');
+          allSuccess = false;
+          errorMessage = 'รหัสสถานะ: ${response.statusCode}, ข้อมูล: ${response.body}';
+        }
+      }
+      
+      if (!allSuccess) {
+        debugPrint('บางข้อความส่งไม่สำเร็จ: $errorMessage');
+      }
+      
+      return allSuccess;
+    } catch (e) {
+      debugPrint('Error sending SMS: $e');
+      throw Exception('เกิดข้อผิดพลาดในการส่ง SMS: $e');
+    }
+  }
+} 

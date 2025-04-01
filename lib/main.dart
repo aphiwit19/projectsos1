@@ -31,6 +31,7 @@ Future<void> _requestPermissions() async {
   await [
     Permission.location,
     Permission.sms,
+    Permission.phone,
   ].request();
 }
 
