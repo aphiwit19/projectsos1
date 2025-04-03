@@ -136,7 +136,10 @@ class SosService {
 
       // 7. ส่ง SMS
       bool anySmsSent = false;
+      bool isCreditEmpty = false;
       Map<String, dynamic> smsStatuses = {};
+      String smsErrorMessage = '';
+      
       try {
         // เปลี่ยนจาก bool เป็น SmsResult ที่มีข้อมูลละเอียดมากขึ้น
         final smsResult = await _smsService.sendSosMessage(userProfile, mapLink, phoneNumbers);
@@ -145,12 +148,19 @@ class SosService {
         // ตรวจสอบว่ามีการส่ง SMS สำเร็จอย่างน้อย 1 เบอร์หรือไม่
         anySmsSent = smsResult.statuses.values.any((status) => status == SmsStatus.success);
         
+        // ตรวจสอบว่าเครดิตหมดหรือไม่
+        isCreditEmpty = smsResult.statuses.values.any((status) => status == SmsStatus.noCredit);
+        
         // บันทึกสถานะการส่งของแต่ละเบอร์เพื่อเก็บในฐานข้อมูล
         smsResult.statuses.forEach((phone, status) {
-          smsStatuses[phone] = status.toString().split('.').last; // แปลง enum เป็น string (success, failed, pending)
+          smsStatuses[phone] = status.toString().split('.').last; // แปลง enum เป็น string (success, failed, pending, noCredit)
         });
         
+        // บันทึกข้อความแสดงความผิดพลาด
+        smsErrorMessage = smsResult.errorMessage;
+        
         debugPrint('Any SMS sent successfully: $anySmsSent');
+        debugPrint('Is credit empty: $isCreditEmpty');
         
         // ถ้าไม่มีการส่ง SMS สำเร็จเลย
         if (!anySmsSent) {
@@ -164,6 +174,7 @@ class SosService {
         }
       } catch (smsError) {
         debugPrint('Failed to send SMS: $smsError');
+        smsErrorMessage = smsError.toString();
         // ไม่ throw Exception ที่นี่เพื่อให้โค้ดทำงานต่อไปได้
       }
 
@@ -224,11 +235,21 @@ class SosService {
         // ไม่บันทึกประวัติเมื่อส่ง SMS ไม่สำเร็จ
         debugPrint('Not saving SOS log because no SMS was sent successfully');
         
-        // ส่งคืนข้อมูลที่ระบุว่าไม่บันทึกประวัติ
+        // ส่งคืนข้อมูลที่ระบุว่าไม่บันทึกประวัติ พร้อมสาเหตุที่ชัดเจน
+        String errorMessage = 'ไม่สามารถส่ง SMS ได้';
+        
+        // ระบุสาเหตุที่ชัดเจนมากขึ้น
+        if (isCreditEmpty) {
+          errorMessage = 'การส่ง SMS ไม่สำเร็จ';
+        } else if (!smsErrorMessage.isEmpty) {
+          errorMessage = 'ไม่สามารถส่ง SMS ได้: $smsErrorMessage';
+        }
+        
         return {
           'success': false,
-          'message': 'ไม่สามารถส่ง SMS ได้ กรุณาลองอีกครั้ง',
+          'message': errorMessage,
           'logId': null,
+          'isCreditEmpty': isCreditEmpty
         };
       }
     } on Exception catch (e) {

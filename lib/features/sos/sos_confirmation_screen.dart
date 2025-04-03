@@ -83,20 +83,38 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
         _statusMessage = 'กำลังส่ง SMS ไปยังผู้ติดต่อฉุกเฉิน...';
       });
       
-      await SosService().sendSos(userId);
+      final result = await SosService().sendSos(userId);
 
-      // แสดงข้อความแจ้งเตือน
+      // แสดงข้อความแจ้งเตือนตามผลลัพธ์ที่ได้รับ
       if (mounted) {
-        setState(() {
-          _statusMessage = 'ส่ง SMS และบันทึกข้อมูล SOS เรียบร้อยแล้ว';
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ส่ง SOS และ SMS เรียบร้อยแล้ว')),
-        );
+        if (result['success']) {
+          setState(() {
+            _statusMessage = 'ส่ง SMS และบันทึกข้อมูล SOS เรียบร้อยแล้ว';
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ส่ง SOS และ SMS เรียบร้อยแล้ว')),
+          );
+        } else {
+          // กรณีส่งไม่สำเร็จ
+          setState(() {
+            _statusMessage = result['message'] ?? 'เกิดข้อผิดพลาดในการส่ง SOS';
+          });
+          
+          // ตรวจสอบว่าเป็นกรณีเครดิตหมดหรือไม่
+          final bool isCreditEmpty = result['isCreditEmpty'] ?? false;
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'เกิดข้อผิดพลาดในการส่ง SOS'),
+              backgroundColor: isCreditEmpty ? Colors.orange : Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
         
         // รอให้ผู้ใช้ได้เห็นข้อความสักครู่ก่อนกลับไปหน้าหลัก
-        await Future.delayed(const Duration(seconds: 2));
+        await Future.delayed(const Duration(seconds: 3));
       }
 
       // กลับไปหน้า HomeScreen

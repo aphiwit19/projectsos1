@@ -7,7 +7,8 @@ import '../models/user_profile_model.dart';
 enum SmsStatus {
   success,   // ส่งสำเร็จ
   failed,    // ส่งไม่สำเร็จ
-  pending    // อยู่ระหว่างการส่ง/ไม่ทราบสถานะ
+  pending,   // อยู่ระหว่างการส่ง/ไม่ทราบสถานะ
+  noCredit   // เครดิตหมด
 }
 
 // สร้าง class เพื่อเก็บผลลัพธ์การส่ง SMS ที่มีรายละเอียดมากขึ้น
@@ -58,24 +59,44 @@ class SmsService {
           final RegExp creditRegex = RegExp(r'<amount>(.*?)</amount>');
           final match = creditRegex.firstMatch(response.body);
           
-          String credit = 'ไม่ทราบ';
+          String credit = '0';
           if (match != null && match.groupCount >= 1) {
-            credit = match.group(1) ?? 'ไม่ทราบ';
+            credit = match.group(1) ?? '0';
           }
           
           return {
+            'status': 'success',
             'credit': credit,
             'balance': credit,
+            'hasCredit': double.tryParse(credit) != null && double.parse(credit) > 0,
           };
         } else {
-          throw Exception('การเชื่อมต่อล้มเหลว: ${response.body}');
+          return {
+            'status': 'error',
+            'credit': '0',
+            'balance': '0',
+            'hasCredit': false,
+            'message': 'การเชื่อมต่อล้มเหลว: ${response.body}'
+          };
         }
       } else {
-        throw Exception('การเชื่อมต่อล้มเหลว (${response.statusCode}): ${response.body}');
+        return {
+          'status': 'error',
+          'credit': '0',
+          'balance': '0',
+          'hasCredit': false,
+          'message': 'การเชื่อมต่อล้มเหลว (${response.statusCode}): ${response.body}'
+        };
       }
     } catch (e) {
       debugPrint('Error checking credit: $e');
-      throw Exception('เกิดข้อผิดพลาดในการตรวจสอบเครดิต: $e');
+      return {
+        'status': 'error',
+        'credit': '0',
+        'balance': '0',
+        'hasCredit': false,
+        'message': 'เกิดข้อผิดพลาดในการตรวจสอบเครดิต: $e'
+      };
     }
   }
 
@@ -127,6 +148,24 @@ class SmsService {
         throw Exception('ไม่มีหมายเลขโทรศัพท์ที่จะส่ง');
       }
 
+      // ตรวจสอบเครดิตก่อนการส่ง
+      final creditInfo = await checkCredit();
+      debugPrint('ข้อมูลเครดิต: $creditInfo');
+      
+      // ถ้าไม่มีเครดิต ให้ return ทันทีว่าไม่สามารถส่งได้
+      if (!creditInfo['hasCredit']) {
+        debugPrint('ไม่สามารถส่ง SMS ได้เนื่องจากเครดิตหมด');
+        return SmsResult(
+          allSuccess: false,
+          statuses: Map.fromIterable(
+            phoneNumbers,
+            key: (phone) => phone,
+            value: (_) => SmsStatus.noCredit
+          ),
+          errorMessage: 'ไม่สามารถส่ง SMS ได้เนื่องจากเครดิตหมด (คงเหลือ: ${creditInfo['credit']})',
+        );
+      }
+
       bool allSuccess = true;
       String errorMessage = '';
       Map<String, SmsStatus> statuses = {};
@@ -158,10 +197,16 @@ class SmsService {
         debugPrint('ข้อมูลการตอบกลับ: ${response.body}');
         
         if (response.statusCode == 200) {
-          // THSMS ตอบกลับเป็น XML
+          // THSMS ตอบกลับเป็น XML - ตรวจสอบกรณีต่างๆ
           if (response.body.contains('<status>success</status>')) {
             debugPrint('ส่ง SMS ไปยัง $formattedPhone สำเร็จ!');
             statuses[recipient] = SmsStatus.success;
+          } else if (response.body.contains('not enough credit')) {
+            // กรณีเครดิตไม่พอ
+            debugPrint('เครดิตไม่เพียงพอในการส่ง SMS ไปยัง $formattedPhone');
+            allSuccess = false;
+            errorMessage = 'เครดิต SMS ไม่เพียงพอ';
+            statuses[recipient] = SmsStatus.noCredit;
           } else {
             debugPrint('ส่ง SMS ไปยัง $formattedPhone ล้มเหลว: ${response.body}');
             allSuccess = false;
