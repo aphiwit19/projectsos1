@@ -15,13 +15,11 @@ class CustomBottomNavigationBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.15),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: Offset(0, -3),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, -5),
           ),
         ],
       ),
@@ -30,27 +28,30 @@ class CustomBottomNavigationBar extends StatelessWidget {
         onTap: onTap,
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
-        selectedItemColor: Color(0xFFE64646),
-        unselectedItemColor: Colors.grey[600],
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
-        items: [
+        selectedItemColor: const Color.fromRGBO(230, 70, 70, 1.0),
+        unselectedItemColor: Colors.grey,
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 12,
+        ),
+        items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home, size: 26),
-            label: 'หน้าแรก',
+            icon: Icon(Icons.home_rounded, size: 28),
+            label: 'หน้าหลัก',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.phone, size: 26),
-            label: 'เบอร์ฉุกเฉิน',
+            icon: Icon(Icons.menu_rounded, size: 28),
+            label: 'เมนู',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.contacts, size: 26),
-            label: 'ผู้ติดต่อ',
+            icon: Icon(Icons.contacts_rounded, size: 28),
+            label: 'ติดต่อฉุกเฉิน',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person, size: 26),
+            icon: Icon(Icons.person_rounded, size: 28),
             label: 'โปรไฟล์',
           ),
         ],

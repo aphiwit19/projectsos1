@@ -5,7 +5,7 @@ import '../../models/emergency_contact_model.dart';
 import 'add_emergency_contact_screen.dart';
 import 'edit_emergency_contact_screen.dart';
 import '../../screens/home_screen.dart';
-import '../emergency_numbers/emergency_numbers_screen.dart';
+import '../menu/menu_screen.dart';
 import '../profile/profile_screen.dart';
 import '../../widgets/custom_bottom_navigation_bar.dart';
 import '../../services/emergency_contact_service.dart';
@@ -294,7 +294,7 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
       case 1:
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const EmergencyNumbersScreen()),
+          MaterialPageRoute(builder: (context) => const MenuScreen()),
         );
         break;
       case 2:

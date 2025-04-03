@@ -5,12 +5,14 @@ import '../../screens/history_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../widgets/custom_bottom_navigation_bar.dart';
 import '../auth/login_screen.dart';
-import '../emergency_numbers/emergency_numbers_screen.dart';
 import '../emergency_contacts/emergency_contacts_screen.dart';
 import 'edit_profile_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/profile_service.dart';
 import '../../models/user_profile_model.dart';
+import '../../services/emergency_contact_service.dart';
+import '../../models/emergency_contact_model.dart';
+import '../menu/menu_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -263,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       case 1:
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const EmergencyNumbersScreen()),
+          MaterialPageRoute(builder: (context) => const MenuScreen()),
         );
         break;
       case 2:
