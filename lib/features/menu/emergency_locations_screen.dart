@@ -193,23 +193,6 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
     }
   }
 
-  // เปิดหน้าต่างโทร
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    // ลบช่องว่างและอักขระพิเศษออก
-    final cleanedNumber = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
-    final url = 'tel:$cleanedNumber';
-    final uri = Uri.parse(url);
-    
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ไม่สามารถโทรออกได้')),
-      );
-    }
-  }
-
   // สร้าง widget แสดงรายการสถานที่
   Widget _buildLocationList(List<Map<String, dynamic>> locations) {
     if (_isLoading) {
@@ -341,21 +324,6 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
                       Row(
                         children: [
                           const Icon(
-                            Icons.phone,
-                            size: 16,
-                            color: Colors.blue,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            location['phone'] ?? 'ไม่ระบุเบอร์โทร',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          const Icon(
                             Icons.directions_walk,
                             size: 16,
                             color: Colors.purple,
@@ -375,47 +343,23 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
                 ),
                 Padding(
                   padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            if (location['phone'] != null && location['phone'].toString().isNotEmpty) {
-                              _makePhoneCall(location['phone'].toString());
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('ไม่มีเบอร์โทรศัพท์')),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.call),
-                          label: const Text('โทร'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.blue,
-                            side: const BorderSide(color: Colors.blue),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _openMap(
+                          location['latitude'] as double,
+                          location['longitude'] as double,
+                        );
+                      },
+                      icon: const Icon(Icons.directions),
+                      label: const Text('นำทาง'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            _openMap(
-                              location['latitude'] as double,
-                              location['longitude'] as double,
-                            );
-                          },
-                          icon: const Icon(Icons.directions),
-                          label: const Text('นำทาง'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],
