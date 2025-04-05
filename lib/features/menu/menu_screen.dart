@@ -6,6 +6,7 @@ import '../../screens/home_screen.dart';
 import 'emergency_phone_screen.dart';
 import 'first_aid_screen.dart';
 import 'news_screen.dart';
+import 'emergency_locations_screen.dart';
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({Key? key}) : super(key: key);
@@ -121,12 +122,27 @@ class MenuScreenState extends State<MenuScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildMenuCard(
+                  "สถานบริการฉุกเฉินใกล้ฉัน",
+                  "ค้นหาความช่วยเหลือใกล้ตัว",
+                  "ค้นหาโรงพยาบาล สถานีตำรวจ สถานีดับเพลิง และคลินิกที่อยู่ใกล้ตำแหน่งปัจจุบันของคุณ พร้อมข้อมูลการติดต่อและเส้นทาง",
+                  "assets/images/location.png",
+                  Icons.location_on_rounded,
+                  Colors.blue.shade700,
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const EmergencyLocationsScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildMenuCard(
                   "ข่าวสารและประกาศ",
                   "ข้อมูลสำคัญที่ควรทราบ",
                   "ติดตามข่าวสารและประกาศสำคัญเกี่ยวกับสถานการณ์ฉุกเฉิน ภัยพิบัติ และคำเตือนต่างๆ ที่ควรทราบ",
                   "assets/images/news.png",
                   Icons.campaign_rounded,
-                  Colors.blue.shade700,
+                  Colors.orange.shade700,
                   () {
                     Navigator.push(
                       context,
