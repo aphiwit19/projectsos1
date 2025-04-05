@@ -398,13 +398,35 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
           unselectedLabelColor: Colors.white.withOpacity(0.7),
           labelStyle: const TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: 14,
           ),
+          isScrollable: false,
+          labelPadding: EdgeInsets.symmetric(horizontal: 8),
           tabs: const [
-            Tab(text: 'โรงพยาบาล'),
-            Tab(text: 'ตำรวจ'),
-            Tab(text: 'ดับเพลิง'),
-            Tab(text: 'คลินิก'),
+            Tab(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('โรงพยาบาล'),
+              ),
+            ),
+            Tab(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('ตำรวจ'),
+              ),
+            ),
+            Tab(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('ดับเพลิง'),
+              ),
+            ),
+            Tab(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('คลินิก'),
+              ),
+            ),
           ],
         ),
       ),
