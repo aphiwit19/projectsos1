@@ -101,42 +101,91 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               },
               child: Center(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 300,
-                      height: 300,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color.fromRGBO(255, 216, 215, 1.0),
+                child: Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0xFFE64646).withOpacity(0.3),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                        offset: Offset(0, 10),
                       ),
-                    ),
-                    Container(
-                      width: 250,
-                      height: 250,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color.fromRGBO(246, 135, 133, 1.0),
+                    ],
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 220,
+                        height: 220,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Color(0xFFFFD8D7).withOpacity(0.7),
+                              Color(0xFFFFD8D7),
+                            ],
+                            stops: [0.6, 1.0],
+                          ),
+                        ),
                       ),
-                    ),
-                    Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color.fromRGBO(230, 70, 70, 1.0),
+                      Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Color(0xFFF68785).withOpacity(0.7),
+                              Color(0xFFF68785),
+                            ],
+                            stops: [0.6, 1.0],
+                          ),
+                        ),
                       ),
-                    ),
-                    Text(
-                      'SOS',
-                      style: TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                      Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Color(0xFFE64646).withOpacity(0.8),
+                              Color(0xFFE64646),
+                            ],
+                            stops: [0.6, 1.0],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0xFFE64646).withOpacity(0.3),
+                              blurRadius: 10,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            'SOS',
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 2,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 10,
+                                  color: Colors.black26,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

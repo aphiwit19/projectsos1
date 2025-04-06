@@ -14,13 +14,46 @@ class SplashScreen extends StatefulWidget {
   _SplashScreenState createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: 2),
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Interval(0.4, 1.0, curve: Curves.easeIn),
+      ),
+    );
+    
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
       body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
@@ -119,88 +152,317 @@ class _SplashScreenState extends State<SplashScreen> {
 
   // ฟังก์ชันสำหรับสร้าง UI ของ Splash Screen
   Widget _buildSplashContent(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 300,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color.fromRGBO(255, 216, 215, 1.0),
-                  ),
-                ),
-                Container(
-                  width: 250,
-                  height: 250,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color.fromRGBO(246, 135, 133, 1.0),
-                  ),
-                ),
-                Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color.fromRGBO(230, 70, 70, 1.0),
-                  ),
-                ),
-                Text(
-                  'SOS',
-                  style: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    double screenWidth = MediaQuery.of(context).size.width;
+    double screenHeight = MediaQuery.of(context).size.height;
+    
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [
+            Color(0xFFF73B3B),
+            Color(0xFFBD2A2A),
+          ],
         ),
-        CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      ),
+      child: Center(
+        child: AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // วงกลม SOS
+                  Container(
+                    width: screenWidth * 0.72,
+                    height: screenWidth * 0.72,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // เงาด้านหลัง
+                        Container(
+                          margin: EdgeInsets.only(top: 15),
+                          width: screenWidth * 0.68,
+                          height: screenWidth * 0.68,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.15),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 25,
+                                spreadRadius: 1,
+                                offset: Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // วงกลมชั้นนอก
+                        Container(
+                          width: screenWidth * 0.65,
+                          height: screenWidth * 0.65,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 10,
+                                spreadRadius: 0,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Container(
+                              width: screenWidth * 0.55,
+                              height: screenWidth * 0.55,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFFF5252),
+                                    Color(0xFFE64646),
+                                  ],
+                                ),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Color(0xFFE64646).withOpacity(0.3),
+                                    blurRadius: 8,
+                                    spreadRadius: 0,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Stack(
+                                children: [
+                                  // แสงวาวในวงกลม
+                                  Positioned(
+                                    top: screenWidth * 0.12,
+                                    left: screenWidth * 0.12,
+                                    child: Container(
+                                      width: screenWidth * 0.12,
+                                      height: screenWidth * 0.08,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white.withOpacity(0.25),
+                                      ),
+                                    ),
+                                  ),
+                                  
+                                  // ตัวอักษร SOS และเส้นขีดใต้
+                                  Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          "SOS",
+                                          style: TextStyle(
+                                            fontSize: screenWidth * 0.14,
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white,
+                                            letterSpacing: 2,
+                                            height: 1,
+                                            shadows: [
+                                              Shadow(
+                                                color: Colors.black38,
+                                                blurRadius: 6,
+                                                offset: Offset(0, 3),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(height: 5),
+                                        // เส้นขีดใต้ข้อความ
+                                        Container(
+                                          width: screenWidth * 0.25,
+                                          height: 2,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.6),
+                                            borderRadius: BorderRadius.circular(1),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.2),
+                                                blurRadius: 3,
+                                                spreadRadius: 0,
+                                                offset: Offset(0, 1),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        
+                        // กากบาท (เครื่องหมายการแพทย์) อยู่ด้านบนสุด
+                        Positioned(
+                          top: 0,
+                          child: Container(
+                            width: screenWidth * 0.16,
+                            height: screenWidth * 0.16,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Color(0xFFE64646), width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.15),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.add,
+                                color: Color(0xFFE64646),
+                                size: screenWidth * 0.09,
+                                weight: 700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  SizedBox(height: screenHeight * 0.05),
+                  
+                  // Loading Indicator และข้อความ
+                  Opacity(
+                    opacity: _opacityAnimation.value,
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            strokeWidth: 3,
+                          ),
+                        ),
+                        
+                        SizedBox(height: 24),
+                        
+                        // ชื่อแอป
+                        Text(
+                          'My SOS',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        
+                        SizedBox(height: 8),
+                        
+                        // คำอธิบาย
+                        Text(
+                          'แอปพลิเคชันช่วยเหลือฉุกเฉิน',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
-        SizedBox(height: 40),
-        Padding(
-          padding: EdgeInsets.only(bottom: 100),
-          child: Text(
-            'ยินดีต้อนรับเข้าสู่ My SOS',
-            style: TextStyle(
-              fontSize: 24,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
   // ฟังก์ชันสำหรับแสดงข้อผิดพลาด
   Widget _buildErrorContent(BuildContext context, String message) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          message,
-          style: TextStyle(color: Colors.white, fontSize: 16),
-          textAlign: TextAlign.center,
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFE64646),
+            Color(0xFFCD3F3F),
+          ],
         ),
-        SizedBox(height: 20),
-        ElevatedButton(
-          onPressed: () {
-            // ลองโหลดใหม่
-            setState(() {});
-          },
-          child: Text('ลองใหม่'),
-        ),
-      ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: Colors.white,
+            size: 80,
+          ),
+          SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Text(
+              message,
+              style: TextStyle(
+                color: Colors.white, 
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          SizedBox(height: 32),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(30),
+                onTap: () {
+                  // ลองโหลดใหม่
+                  setState(() {});
+                },
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                  child: Text(
+                    'ลองใหม่',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFE64646),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

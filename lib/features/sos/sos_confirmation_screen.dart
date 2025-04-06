@@ -226,7 +226,7 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
                       ),
                       const SizedBox(height: 20),
                       const Text(
-                        "ระบบจะส่ง SMS ข้อมูลตำแหน่งที่อยู่ถึงผู้ติดต่อฉุกเฉิน เมื่อสิ้นสุดการนับถอยหลัง",
+                        "ระบบจะส่ง SMS แจ้งเหตุฉุกเฉิน เมื่อสิ้นสุดการนับถอยหลัง",
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.white,
