@@ -20,6 +20,8 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen> {
   String phoneError = '';
   bool _isLoading = false;
 
+
+
   Future<void> _addContact() async {
     String name = nameController.text.trim();
     String phone = phoneController.text.trim();
@@ -65,7 +67,7 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen> {
     try {
       widget.onContactAdded(name, phone);
       Navigator.pop(context);
-      
+
       // แสดงข้อความเมื่อเพิ่มสำเร็จ
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -248,28 +250,49 @@ class _AddEmergencyContactScreenState extends State<AddEmergencyContactScreen> {
                 ),
               ),
               const SizedBox(height: 40),
-              _isLoading
-                  ? const CircularProgressIndicator(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                    )
-                  : SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _addContact,
-                        child: const Text("เพิ่ม",
-                            style:
-                                TextStyle(fontSize: 18, color: Colors.white)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color.fromRGBO(230, 70, 70, 1.0),
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30)),
-                          elevation: 5,
-                          shadowColor: Colors.black26,
-                        ),
-                      ),
+              Container(
+                width: double.infinity,
+                height: 55,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFFE64646).withOpacity(0.3),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
                     ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _addContact,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFFE64646),
+                    padding: EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isLoading
+                      ? SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      strokeWidth: 3,
+                    ),
+                  )
+                      : Text(
+                    "เพิ่ม",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

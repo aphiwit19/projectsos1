@@ -24,6 +24,8 @@ class _EditEmergencyContactScreenState extends State<EditEmergencyContactScreen>
   String nameError = '';
   String phoneError = '';
 
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +81,7 @@ class _EditEmergencyContactScreenState extends State<EditEmergencyContactScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              SizedBox(height: 40),
               const Text(
                 "แก้ไขผู้ติดต่อฉุกเฉิน",
                 style: TextStyle(
@@ -88,16 +91,7 @@ class _EditEmergencyContactScreenState extends State<EditEmergencyContactScreen>
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 10),
-              Text(
-                "กรุณากรอกข้อมูลผู้ติดต่อฉุกเฉิน",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 30),
               // ช่องกรอกชื่อ
               Container(
                 decoration: BoxDecoration(
@@ -197,10 +191,24 @@ class _EditEmergencyContactScreenState extends State<EditEmergencyContactScreen>
                 ),
               ),
               const SizedBox(height: 40),
-              SizedBox(
+              Container(
                 width: double.infinity,
+                height: 55,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFFE64646).withOpacity(0.3),
+                      spreadRadius: 1,
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: _isLoading
+                      ? null
+                      : () async {
                     String name = nameController.text.trim();
                     String phone = phoneController.text.trim();
                     bool hasError = false;
@@ -233,25 +241,54 @@ class _EditEmergencyContactScreenState extends State<EditEmergencyContactScreen>
                     }
 
                     if (!hasError) {
-                      widget.onContactUpdated(name, phone);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('บันทึกข้อมูลสำเร็จ')),
-                      );
-                      Navigator.pop(context);
+                      setState(() {
+                        _isLoading = true;
+                      });
+
+                      try {
+                        widget.onContactUpdated(name, phone);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('บันทึกข้อมูลสำเร็จ'),
+                            backgroundColor: Color.fromRGBO(76, 175, 80, 1.0),
+                          ),
+                        );
+                        Navigator.pop(context);
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+                        );
+                      } finally {
+                        setState(() {
+                          _isLoading = false;
+                        });
+                      }
                     }
                   },
-                  child: const Text(
-                    "บันทึก",
-                    style: TextStyle(fontSize: 18, color: Colors.white),
-                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    backgroundColor: Color(0xFFE64646),
+                    padding: EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    elevation: 5, // เพิ่มเงาให้ปุ่ม
-                    shadowColor: Colors.black26,
+                    elevation: 0,
+                  ),
+                  child: _isLoading
+                      ? SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      strokeWidth: 3,
+                    ),
+                  )
+                      : Text(
+                    "บันทึก",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),

@@ -7,8 +7,8 @@ class FallDetectionService {
   StreamSubscription<GyroscopeEvent>? _gyroscopeSubscription;
 
   // Thresholds สำหรับการตรวจจับการล้ม (ปรับได้ตามการทดสอบ)
-  static const double accelerationThreshold = 20.0; // แรง G ที่บ่งบอกการล้ม
-  static const double gyroscopeThreshold = 5.0; // ความเร็วการหมุน (rad/s)
+  static const double accelerationThreshold = 25.0; // แรง G ที่บ่งบอกการล้ม
+  static const double gyroscopeThreshold = 12.0; // ความเร็วการหมุน (rad/s)
 
   // Callback เมื่อตรวจจับการล้ม
   final Function() onFallDetected;

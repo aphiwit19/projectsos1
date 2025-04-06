@@ -29,6 +29,7 @@ class _InitialProfileSetupScreenState extends State<InitialProfileSetupScreen> {
   String? _allergiesError;
   bool _isLoading = false;
   final ProfileService _profileService = ProfileService();
+  final _formKey = GlobalKey<FormState>();
 
   final List<String> genderOptions = ['ชาย', 'หญิง', 'อื่นๆ'];
   final List<String> bloodTypeOptions = ['A', 'B', 'AB', 'O'];
@@ -293,26 +294,12 @@ class _InitialProfileSetupScreenState extends State<InitialProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
+        backgroundColor: Color(0xFFE64646),
         elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 10.0, top: 10.0),
-          child: Container(
-            width: 40,
-            height: 40,
-            child: IconButton(
-              icon: const Icon(
-                Icons.arrow_back,
-                color: Colors.white,
-                size: 24,
-              ),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-        ),
         title: const Text(
-          "กรอกข้อมูลส่วนตัว",
+          "บันทึกโปร์ไฟล์ส่วนตัว",
           style: TextStyle(
             color: Colors.white,
             fontSize: 20,
@@ -320,424 +307,351 @@ class _InitialProfileSetupScreenState extends State<InitialProfileSetupScreen> {
           ),
         ),
         centerTitle: true,
-        automaticallyImplyLeading: false,
-      ),
-      backgroundColor: const Color.fromRGBO(244, 244, 244, 1.0),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 20),
-            const Text(
-              "ยินดีต้อนรับ!",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "กรุณากรอกข้อมูลส่วนตัวเพื่อเริ่มใช้งาน",
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: _fullNameController,
-                decoration: InputDecoration(
-                  labelText: "ชื่อ-นามสกุล",
-                  labelStyle: TextStyle(color: Colors.grey[700]),
-                  prefixIcon: const Icon(Icons.person, color: Colors.grey),
-                  errorText: _fullNameError,
-                  errorStyle: const TextStyle(
-                    color: Color.fromRGBO(230, 70, 70, 1.0),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 2,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 1,
-                    ),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: _phoneController,
-                decoration: InputDecoration(
-                  labelText: "เบอร์โทรศัพท์",
-                  labelStyle: TextStyle(color: Colors.grey[700]),
-                  prefixIcon: const Icon(Icons.phone, color: Colors.grey),
-                  errorText: _phoneError,
-                  errorStyle: const TextStyle(
-                    color: Color.fromRGBO(230, 70, 70, 1.0),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 2,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 1,
-                    ),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                ),
-                keyboardType: TextInputType.phone,
-                maxLength: 10,
-                maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-                    leading: const Icon(Icons.wc, color: Colors.grey),
-                    title: Text(
-                      "เพศ",
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                    trailing: DropdownButton<String>(
-                      value: _selectedGender,
-                      items: genderOptions.map((String gender) {
-                        return DropdownMenuItem<String>(
-                          value: gender,
-                          child: Text(gender, style: const TextStyle(color: Colors.black)),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedGender = newValue;
-                          _genderError = null; // รีเซ็ต error เมื่อเลือก
-                        });
-                      },
-                      underline: const SizedBox(),
-                      icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                    ),
-                  ),
-                  if (_genderError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 10),
-                      child: Text(
-                        _genderError!,
-                        style: const TextStyle(
-                          color: Color.fromRGBO(230, 70, 70, 1.0),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-                    leading: const Icon(Icons.bloodtype, color: Colors.grey),
-                    title: Text(
-                      "หมู่เลือด",
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                    trailing: DropdownButton<String>(
-                      value: _selectedBloodType,
-                      items: bloodTypeOptions.map((String bloodType) {
-                        return DropdownMenuItem<String>(
-                          value: bloodType,
-                          child: Text(bloodType, style: const TextStyle(color: Colors.black)),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedBloodType = newValue;
-                          _bloodTypeError = null; // รีเซ็ต error เมื่อเลือก
-                        });
-                      },
-                      underline: const SizedBox(),
-                      icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                    ),
-                  ),
-                  if (_bloodTypeError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 10),
-                      child: Text(
-                        _bloodTypeError!,
-                        style: const TextStyle(
-                          color: Color.fromRGBO(230, 70, 70, 1.0),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: _medicalConditionsController,
-                decoration: InputDecoration(
-                  labelText: "โรคประจำตัว",
-                  labelStyle: TextStyle(color: Colors.grey[700]),
-                  prefixIcon: const Icon(Icons.medical_services, color: Colors.grey),
-                  errorText: _medicalConditionsError,
-                  errorStyle: const TextStyle(
-                    color: Color.fromRGBO(230, 70, 70, 1.0),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 2,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 1,
-                    ),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: _allergiesController,
-                decoration: InputDecoration(
-                  labelText: "การแพ้ยา",
-                  labelStyle: TextStyle(color: Colors.grey[700]),
-                  prefixIcon: const Icon(Icons.warning, color: Colors.grey),
-                  errorText: _allergiesError,
-                  errorStyle: const TextStyle(
-                    color: Color.fromRGBO(230, 70, 70, 1.0),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 2,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 1,
-                    ),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      width: 2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
-            _isLoading
-                ? const Center(
-              child: CircularProgressIndicator(
-                color: Color.fromRGBO(230, 70, 70, 1.0),
-                strokeWidth: 5,
-              ),
-            )
-                : SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saveProfile,
-                child: const Text(
-                  "บันทึก",
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  elevation: 5,
-                  shadowColor: Colors.black26,
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
-          ],
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // แสดงภาพประกอบ
+
+                  SizedBox(height: 18),
+                  _buildSectionHeader('ข้อมูลส่วนตัว'),
+                  SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _fullNameController,
+                    label: "ชื่อ-นามสกุล",
+                    hintText: "กรุณากรอกชื่อ-นามสกุล",
+                    errorText: _fullNameError,
+                    icon: Icons.person_outline,
+                  ),
+                  SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _phoneController,
+                    label: "เบอร์โทรศัพท์",
+                    hintText: "กรุณากรอกเบอร์โทรศัพท์",
+                    errorText: _phoneError,
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      LengthLimitingTextInputFormatter(10),
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  _buildDropdownField(
+                    label: "เพศ",
+                    hint: "เลือกเพศ",
+                    value: _selectedGender,
+                    errorText: _genderError,
+                    items: genderOptions,
+                    icon: Icons.person_outline,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedGender = value;
+                      });
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  _buildDropdownField(
+                    label: "หมู่เลือด",
+                    hint: "เลือกหมู่เลือด",
+                    value: _selectedBloodType,
+                    errorText: _bloodTypeError,
+                    items: bloodTypeOptions,
+                    icon: Icons.bloodtype_outlined,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedBloodType = value;
+                      });
+                    },
+                  ),
+                  SizedBox(height: 24),
+                  _buildSectionHeader('ข้อมูลทางการแพทย์'),
+                  SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _medicalConditionsController,
+                    label: "โรคประจำตัว",
+                    hintText: "กรุณากรอกโรคประจำตัว (หากไม่มีให้ระบุ 'ไม่มี')",
+                    errorText: _medicalConditionsError,
+                    icon: Icons.medical_services_outlined,
+                    maxLines: 3,
+                  ),
+                  SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _allergiesController,
+                    label: "การแพ้ยา",
+                    hintText: "กรุณากรอกการแพ้ยา (หากไม่มีให้ระบุ 'ไม่มี')",
+                    errorText: _allergiesError,
+                    icon: Icons.medication_outlined,
+                    maxLines: 3,
+                  ),
+                  SizedBox(height: 32),
+                  Container(
+                    width: double.infinity,
+                    height: 55,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFFE64646).withOpacity(0.3),
+                          spreadRadius: 1,
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _saveProfile,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFFE64646),
+                        padding: EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : Text(
+                              "บันทึกข้อมูล",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSectionHeader(String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        SizedBox(height: 8),
+        Container(
+          width: 50,
+          height: 4,
+          decoration: BoxDecoration(
+            color: Color(0xFFE64646),
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hintText,
+    String? errorText,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                spreadRadius: 1,
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            maxLines: maxLines,
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: TextStyle(color: Colors.black38),
+              prefixIcon: Icon(icon, color: Color(0xFFE64646)),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Color(0xFFE64646), width: 1.5),
+              ),
+              contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            ),
+          ),
+        ),
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6.0, left: 8.0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 14,
+                  color: Color(0xFFE64646),
+                ),
+                SizedBox(width: 4),
+                Text(
+                  errorText,
+                  style: TextStyle(
+                    color: Color(0xFFE64646),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String label,
+    required String hint,
+    required String? value,
+    String? errorText,
+    required List<String> items,
+    required Function(String?) onChanged,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                spreadRadius: 1,
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: DropdownButtonFormField<String>(
+            value: value,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(color: Colors.black38),
+              prefixIcon: Icon(icon, color: Color(0xFFE64646)),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Color(0xFFE64646), width: 1.5),
+              ),
+              contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            ),
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: 16,
+            ),
+            icon: Icon(Icons.arrow_drop_down, color: Colors.black54),
+            onChanged: onChanged,
+            items: items.map<DropdownMenuItem<String>>((String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(value),
+              );
+            }).toList(),
+          ),
+        ),
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6.0, left: 8.0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 14,
+                  color: Color(0xFFE64646),
+                ),
+                SizedBox(width: 4),
+                Text(
+                  errorText,
+                  style: TextStyle(
+                    color: Color(0xFFE64646),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
