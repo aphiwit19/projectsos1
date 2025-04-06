@@ -40,6 +40,7 @@ Future<void> _requestPermissions() async {
     Permission.location,
     Permission.sms,
     Permission.phone,
+    Permission.notification,
   ].request();
 }
 

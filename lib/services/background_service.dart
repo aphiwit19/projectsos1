@@ -5,10 +5,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'firebase_service.dart';
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
+
+  // ขอสิทธิ์แจ้งเตือนสำหรับ Android 13 ขึ้นไป
+  if (await Permission.notification.isDenied) {
+    await Permission.notification.request();
+  }
 
   await service.configure(
     androidConfiguration: AndroidConfiguration(
