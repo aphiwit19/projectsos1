@@ -78,192 +78,330 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(244, 244, 244, 1.0),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: 60),
-                Text(
-                  "เข้าสู่ระบบ",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                SizedBox(height: 40),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "อีเมล",
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    hintText: 'กรุณากรอกอีเมล',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'กรุณากรอกอีเมล';
-                    }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                        .hasMatch(value)) {
-                      return 'กรุณากรอกอีเมลให้ถูกต้อง';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "รหัสผ่าน",
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    hintText: 'กรุณากรอกรหัสผ่าน',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey),
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: Colors.grey,
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: 20),
+                  // แบนเนอร์ด้านบน
+                  Center(
+                    child: Container(
+                      height: 200,
+                      width: 280,
+                      child: Image.asset(
+                        'assets/images/login_image.jpg',
+                        fit: BoxFit.contain,
                       ),
-                      onPressed: _togglePasswordVisibility,
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'กรุณากรอกรหัสผ่าน';
-                    }
-                    if (value.length < 8) {
-                      return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัว';
-                    }
-                    return null;
-                  },
-                ),
-                if (errorMessage.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10.0),
+                  SizedBox(height: 20),
+                  // หัวข้อหลัก
+                  Center(
                     child: Text(
-                      errorMessage,
-                      style: TextStyle(
-                        color: Color.fromRGBO(230, 70, 70, 1.0),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: navigateToForgotPassword,
-                    child: Text(
-                      "ลืมรหัสผ่าน",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 40),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : signIn,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
-                      padding: EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    )
-                        : Text(
                       "เข้าสู่ระบบ",
                       style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 40),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "ยังไม่ได้สมัครสมาชิก? ",
+                  SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      "กรุณาเข้าสู่ระบบเพื่อใช้งาน",
                       style: TextStyle(
-                        fontSize: 14,
-                        color: Color.fromRGBO(162, 162, 167, 1.0),
+                        fontSize: 16,
+                        color: Colors.black54,
                       ),
                     ),
-                    GestureDetector(
-                      onTap: navigateToRegister,
+                  ),
+                  SizedBox(height: 20),
+                  // ฟอร์มอีเมล
+                  _buildInputField(
+                    controller: emailController,
+                    label: "อีเมล",
+                    hintText: "กรุณากรอกอีเมล",
+                    icon: Icons.email_outlined,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'กรุณากรอกอีเมล';
+                      }
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                          .hasMatch(value)) {
+                        return 'กรุณากรอกอีเมลให้ถูกต้อง';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 20),
+                  // ฟอร์มรหัสผ่าน
+                  _buildPasswordField(
+                    controller: passwordController,
+                    label: "รหัสผ่าน",
+                    hintText: "กรุณากรอกรหัสผ่าน",
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'กรุณากรอกรหัสผ่าน';
+                      }
+                      if (value.length < 8) {
+                        return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัว';
+                      }
+                      return null;
+                    },
+                  ),
+                  if (errorMessage.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10.0, left: 4.0),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline, 
+                            size: 16, 
+                            color: Color(0xFFE64646),
+                          ),
+                          SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              errorMessage,
+                              style: TextStyle(
+                                color: Color(0xFFE64646),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: navigateToForgotPassword,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      ),
                       child: Text(
-                        "สมัครสมาชิก",
+                        "ลืมรหัสผ่าน?",
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFE64646),
                         ),
                       ),
                     ),
-                  ],
-                ),
-                SizedBox(height: 20),
-              ],
+                  ),
+                  SizedBox(height: 40),
+                  // ปุ่มเข้าสู่ระบบ
+                  Container(
+                    width: double.infinity,
+                    height: 55,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFFE64646).withOpacity(0.3),
+                          spreadRadius: 1,
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : signIn,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFFE64646),
+                        padding: EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : Text(
+                              "เข้าสู่ระบบ",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                  SizedBox(height: 30),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "ยังไม่ได้สมัครสมาชิก? ",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: navigateToRegister,
+                        child: Text(
+                          "สมัครสมาชิก",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFFE64646),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+  
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hintText,
+    required IconData icon,
+    required String? Function(String?) validator,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                spreadRadius: 1,
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: TextStyle(color: Colors.black38),
+              prefixIcon: Icon(icon, color: Color(0xFFE64646)),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Color(0xFFE64646), width: 1.5),
+              ),
+              contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            ),
+            validator: validator,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String label,
+    required String hintText,
+    required String? Function(String?) validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                spreadRadius: 1,
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextFormField(
+            controller: controller,
+            obscureText: _obscurePassword,
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: TextStyle(color: Colors.black38),
+              prefixIcon: Icon(Icons.lock_outline, color: Color(0xFFE64646)),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.grey,
+                ),
+                onPressed: _togglePasswordVisibility,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Color(0xFFE64646), width: 1.5),
+              ),
+              contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            ),
+            validator: validator,
+          ),
+        ),
+      ],
     );
   }
 }

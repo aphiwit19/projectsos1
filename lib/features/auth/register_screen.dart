@@ -4,6 +4,7 @@ import 'package:projectappsos/features/auth/login_screen.dart';
 import 'package:projectappsos/features/profile/edit_user_profile_screen.dart'; // ใช้ InitialProfileSetupScreen
 import 'package:projectappsos/services/auth_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -11,6 +12,7 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
@@ -36,68 +38,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void register() async {
-    setState(() {
-      emailError = '';
-      passwordError = '';
-      confirmPasswordError = '';
-      errorMessage = '';
-      _isLoading = true;
-    });
-
-    String email = emailController.text.trim();
-    String password = passwordController.text.trim();
-    String confirmPassword = confirmPasswordController.text.trim();
-
-    debugPrint('Register button pressed');
-    debugPrint('Email: $email');
-    debugPrint('Password: $password');
-    debugPrint('Confirm Password: $confirmPassword');
-
-    bool hasError = false;
-
-    if (email.isEmpty) {
+    if (_formKey.currentState!.validate()) {
       setState(() {
-        emailError = 'กรุณากรอกอีเมล';
+        emailError = '';
+        passwordError = '';
+        confirmPasswordError = '';
+        errorMessage = '';
+        _isLoading = true;
       });
-      hasError = true;
-      debugPrint('Email error: $emailError');
-    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-      setState(() {
-        emailError = 'กรุณากรอกอีเมลให้ถูกต้อง';
-      });
-      hasError = true;
-      debugPrint('Email error: $emailError');
-    }
 
-    if (password.isEmpty) {
-      setState(() {
-        passwordError = 'กรุณากรอกรหัสผ่าน';
-      });
-      hasError = true;
-      debugPrint('Password error: $passwordError');
-    } else if (password.length < 8) {
-      setState(() {
-        passwordError = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัว';
-      });
-      hasError = true;
-      debugPrint('Password error: $passwordError');
-    }
+      String email = emailController.text.trim();
+      String password = passwordController.text.trim();
+      String confirmPassword = confirmPasswordController.text.trim();
 
-    if (confirmPassword.isEmpty) {
-      setState(() {
-        confirmPasswordError = 'กรุณากรอกยืนยันรหัสผ่าน';
-      });
-      hasError = true;
-      debugPrint('Confirm Password error: $confirmPasswordError');
-    } else if (password != confirmPassword) {
-      setState(() {
-        confirmPasswordError = 'รหัสผ่านไม่ตรงกัน';
-      });
-      hasError = true;
-      debugPrint('Confirm Password error: $confirmPasswordError');
-    }
+      debugPrint('Register button pressed');
+      debugPrint('Email: $email');
+      debugPrint('Password: $password');
+      debugPrint('Confirm Password: $confirmPassword');
 
-    if (!hasError) {
+      if (password != confirmPassword) {
+        setState(() {
+          confirmPasswordError = 'รหัสผ่านไม่ตรงกัน';
+          _isLoading = false;
+        });
+        return;
+      }
+
       try {
         debugPrint('Attempting to register user...');
         var userCredential = await _authService.register(email, password);
@@ -132,224 +98,356 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _isLoading = false;
         });
       }
-    } else {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromRGBO(244, 244, 244, 1.0),
-      body: SingleChildScrollView(
-        child: Container(
-          color: Color.fromRGBO(244, 244, 244, 1.0),
-          padding: EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 40),
-              Text(
-                "สมัครสมาชิก",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              SizedBox(height: 20),
-              Text(
-                "อีเมล",
-                style: TextStyle(fontSize: 14),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: 'กรุณากรอกอีเมล',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-              ),
-              if (emailError.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 5.0, left: 10.0),
-                  child: Text(
-                    emailError,
-                    style: TextStyle(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              SizedBox(height: 20),
-              Text(
-                "รหัสผ่าน",
-                style: TextStyle(fontSize: 14),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: passwordController,
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  hintText: 'รหัสผ่าน',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.grey,
-                    ),
-                    onPressed: _togglePasswordVisibility,
-                  ),
-                ),
-              ),
-              if (passwordError.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 5.0, left: 10.0),
-                  child: Text(
-                    passwordError,
-                    style: TextStyle(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              SizedBox(height: 20),
-              Text(
-                "ยืนยันรหัสผ่าน",
-                style: TextStyle(fontSize: 14),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: confirmPasswordController,
-                obscureText: _obscureConfirmPassword,
-                decoration: InputDecoration(
-                  hintText: 'ยืนยันรหัสผ่าน',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.grey,
-                    ),
-                    onPressed: _toggleConfirmPasswordVisibility,
-                  ),
-                ),
-              ),
-              if (confirmPasswordError.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 5.0, left: 10.0),
-                  child: Text(
-                    confirmPasswordError,
-                    style: TextStyle(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              if (errorMessage.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10.0),
-                  child: Text(
-                    errorMessage,
-                    style: TextStyle(
-                      color: Color.fromRGBO(230, 70, 70, 1.0),
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : register,
-                  child: _isLoading
-                      ? CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  )
-                      : Text(
-                    "ลงทะเบียน",
-                    style: TextStyle(fontSize: 18, color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
-                    padding: EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 40),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: Colors.white,
+
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "มีบัญชีอยู่แล้ว? ",
-                    style: TextStyle(color: Color.fromRGBO(162, 162, 167, 1.0)),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => LoginScreen()),
-                      );
-                    },
-                    child: Text(
-                      "เข้าสู่ระบบ",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
+                  SizedBox(height: 20),
+                  Center(
+                    child: Container(
+                      height: 200,
+                      width: 280,
+                      child: Image.asset(
+                        'assets/images/register_image.jpg',
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
+                  SizedBox(height: 20),
+                  Center(
+                    child: Text(
+                      "สมัครสมาชิก",
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      "สมัครสมาชิกเพื่อเริ่มการใช้งาน",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  _buildInputField(
+                    controller: emailController,
+                    label: "อีเมล",
+                    hintText: "กรุณากรอกอีเมล",
+                    errorText: emailError,
+                    icon: Icons.email_outlined,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  SizedBox(height: 20),
+                  _buildPasswordField(
+                    controller: passwordController,
+                    label: "รหัสผ่าน",
+                    hintText: "กรุณากรอกรหัสผ่าน",
+                    errorText: passwordError,
+                    obscureText: _obscurePassword,
+                    toggleVisibility: _togglePasswordVisibility,
+                  ),
+                  SizedBox(height: 20),
+                  _buildPasswordField(
+                    controller: confirmPasswordController,
+                    label: "ยืนยันรหัสผ่าน",
+                    hintText: "กรุณายืนยันรหัสผ่าน",
+                    errorText: confirmPasswordError,
+                    obscureText: _obscureConfirmPassword,
+                    toggleVisibility: _toggleConfirmPasswordVisibility,
+                  ),
+                  if (errorMessage.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0, left: 4.0),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline, 
+                            size: 16, 
+                            color: Color(0xFFE64646),
+                          ),
+                          SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              errorMessage,
+                              style: TextStyle(
+                                color: Color(0xFFE64646),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  SizedBox(height: 40),
+                  Container(
+                    width: double.infinity,
+                    height: 55,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFFE64646).withOpacity(0.3),
+                          spreadRadius: 1,
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : register,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFFE64646),
+                        padding: EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : Text(
+                              "สมัครสมาชิก",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                  SizedBox(height: 30),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "มีบัญชีอยู่แล้ว? ",
+                        style: TextStyle(
+                          color: Colors.black54,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => LoginScreen()),
+                          );
+                        },
+                        child: Text(
+                          "เข้าสู่ระบบ",
+                          style: TextStyle(
+                            color: Color(0xFFE64646),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 30),
                 ],
               ),
-              SizedBox(height: 20),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hintText,
+    required String errorText,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                spreadRadius: 1,
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: TextStyle(color: Colors.black38),
+              prefixIcon: Icon(icon, color: Color(0xFFE64646)),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Color(0xFFE64646), width: 1.5),
+              ),
+              contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'กรุณากรอก${label.toLowerCase()}';
+              }
+              if (label == "อีเมล" && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                return 'กรุณากรอกอีเมลให้ถูกต้อง';
+              }
+              return null;
+            },
+          ),
+        ),
+        if (errorText.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6.0, left: 8.0),
+            child: Text(
+              errorText,
+              style: TextStyle(
+                color: Color(0xFFE64646),
+                fontSize: 12,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String label,
+    required String hintText,
+    required String errorText,
+    required bool obscureText,
+    required VoidCallback toggleVisibility,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                spreadRadius: 1,
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextFormField(
+            controller: controller,
+            obscureText: obscureText,
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: TextStyle(color: Colors.black38),
+              prefixIcon: Icon(Icons.lock_outline, color: Color(0xFFE64646)),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  obscureText ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.grey,
+                ),
+                onPressed: toggleVisibility,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Color(0xFFE64646), width: 1.5),
+              ),
+              contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'กรุณากรอก${label.toLowerCase()}';
+              }
+              if (value.length < 8 && label == "รหัสผ่าน") {
+                return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัว';
+              }
+              if (label == "ยืนยันรหัสผ่าน" && value != passwordController.text) {
+                return 'รหัสผ่านไม่ตรงกัน';
+              }
+              return null;
+            },
+          ),
+        ),
+        if (errorText.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6.0, left: 8.0),
+            child: Text(
+              errorText,
+              style: TextStyle(
+                color: Color(0xFFE64646),
+                fontSize: 12,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
