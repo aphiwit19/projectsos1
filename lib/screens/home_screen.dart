@@ -95,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SosConfirmationScreen()),
+                  MaterialPageRoute(builder: (context) => SosConfirmationScreen(detectionSource: 'manual')),
                 ).then((value) {
                   print("Returned to HomeScreen from SosConfirmationScreen");
                 });
