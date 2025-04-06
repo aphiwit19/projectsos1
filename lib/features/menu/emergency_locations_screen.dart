@@ -15,16 +15,16 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
   late TabController _tabController;
   final LocationService _locationService = LocationService();
   final EmergencyLocationService _emergencyLocationService = EmergencyLocationService();
-  
+
   Position? _currentPosition;
   bool _isLoading = true;
   String _errorMessage = '';
-  
+
   // ข้อมูลสถานที่แต่ละประเภท
   List<Map<String, dynamic>> _hospitals = [];
   List<Map<String, dynamic>> _policeStations = [];
-  List<Map<String, dynamic>> _fireStations = [];
   List<Map<String, dynamic>> _clinics = [];
+  List<Map<String, dynamic>> _pharmacies = [];
   
   // รัศมีการค้นหา (กิโลเมตร)
   double _searchRadius = 10.0;
@@ -58,12 +58,12 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
 
     try {
       final position = await _locationService.getBestLocation(context: context);
-      
+
       if (position != null) {
         setState(() {
           _currentPosition = position;
         });
-        
+
         // เมื่อได้ตำแหน่งแล้ว ดึงข้อมูลสถานที่
         await _fetchAllEmergencyLocations();
       } else {
@@ -83,18 +83,18 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
   // ดึงข้อมูลสถานที่ทั้งหมด
   Future<void> _fetchAllEmergencyLocations() async {
     if (_currentPosition == null) return;
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       // ดึงข้อมูลแต่ละประเภทพร้อมกัน
       await Future.wait([
         _fetchHospitals(),
         _fetchPoliceStations(),
-        _fetchFireStations(),
         _fetchClinics(),
+        _fetchPharmacies(),
       ]);
     } catch (e) {
       setState(() {
@@ -110,13 +110,13 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
   // ดึงข้อมูลโรงพยาบาล
   Future<void> _fetchHospitals() async {
     if (_currentPosition == null) return;
-    
+
     try {
       final hospitals = await _emergencyLocationService.getNearbyHospitals(
         _currentPosition!,
         _searchRadius,
       );
-      
+
       setState(() {
         _hospitals = hospitals;
       });
@@ -128,13 +128,13 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
   // ดึงข้อมูลสถานีตำรวจ
   Future<void> _fetchPoliceStations() async {
     if (_currentPosition == null) return;
-    
+
     try {
       final stations = await _emergencyLocationService.getNearbyPoliceStations(
         _currentPosition!,
         _searchRadius,
       );
-      
+
       setState(() {
         _policeStations = stations;
       });
@@ -143,39 +143,39 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
     }
   }
 
-  // ดึงข้อมูลสถานีดับเพลิง
-  Future<void> _fetchFireStations() async {
-    if (_currentPosition == null) return;
-    
-    try {
-      final stations = await _emergencyLocationService.getNearbyFireStations(
-        _currentPosition!,
-        _searchRadius,
-      );
-      
-      setState(() {
-        _fireStations = stations;
-      });
-    } catch (e) {
-      print('Error fetching fire stations: $e');
-    }
-  }
-
   // ดึงข้อมูลคลินิก
   Future<void> _fetchClinics() async {
     if (_currentPosition == null) return;
-    
+
     try {
       final clinics = await _emergencyLocationService.getNearbyClinics(
         _currentPosition!,
         _searchRadius,
       );
-      
+
       setState(() {
         _clinics = clinics;
       });
     } catch (e) {
       print('Error fetching clinics: $e');
+    }
+  }
+
+  // ดึงข้อมูลร้านขายยา
+  Future<void> _fetchPharmacies() async {
+    if (_currentPosition == null) return;
+
+    try {
+      final pharmacies = await _emergencyLocationService.getNearbyPharmacies(
+        _currentPosition!,
+        _searchRadius,
+      );
+
+      setState(() {
+        _pharmacies = pharmacies;
+      });
+    } catch (e) {
+      print('Error fetching pharmacies: $e');
     }
   }
 
@@ -197,10 +197,12 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
   Widget _buildLocationList(List<Map<String, dynamic>> locations) {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(
+          color: Color.fromRGBO(230, 70, 70, 1.0),
+        ),
       );
     }
-    
+
     if (_errorMessage.isNotEmpty) {
       return Center(
         child: Column(
@@ -208,13 +210,16 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
           children: [
             const Icon(
               Icons.error_outline,
-              color: Colors.red,
+              color: Color.fromRGBO(230, 70, 70, 1.0),
               size: 60,
             ),
             const SizedBox(height: 16),
             Text(
               _errorMessage,
-              style: const TextStyle(fontSize: 18),
+              style: const TextStyle(
+                fontSize: 18,
+                color: Color(0xFF666666),
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -223,16 +228,19 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
               icon: const Icon(Icons.refresh),
               label: const Text('ลองใหม่'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
         ),
       );
     }
-    
+
     if (locations.isEmpty) {
       return Center(
         child: Column(
@@ -246,7 +254,10 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
             const SizedBox(height: 16),
             Text(
               'ไม่พบสถานที่ในรัศมี $_searchRadius กิโลเมตร',
-              style: const TextStyle(fontSize: 18),
+              style: const TextStyle(
+                fontSize: 18,
+                color: Color(0xFF666666),
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -260,109 +271,190 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
               icon: const Icon(Icons.search),
               label: Text('ขยายการค้นหาเป็น ${_searchRadius + 5} กม.'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor: Colors.blue.shade700,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
         ),
       );
     }
-    
+
     return RefreshIndicator(
       onRefresh: _fetchAllEmergencyLocations,
+      color: Colors.blue.shade700,
       child: ListView.builder(
         itemCount: locations.length,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(top: 8, bottom: 24),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(top: 12, bottom: 24),
         itemBuilder: (context, index) {
           final location = locations[index];
           final distance = location['distance'] as double;
-          final distanceText = distance < 1 
-              ? '${(distance * 1000).toStringAsFixed(0)} เมตร' 
+          final distanceText = distance < 1
+              ? '${(distance * 1000).toStringAsFixed(0)} เมตร'
               : '${distance.toStringAsFixed(1)} กม.';
-          
-          return Card(
+
+          return Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  title: Text(
-                    location['name'] ?? 'ไม่ระบุชื่อ',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.location_on,
-                            size: 16,
-                            color: Colors.red,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              location['address'] ?? 'ไม่ระบุที่อยู่',
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.directions_walk,
-                            size: 16,
-                            color: Colors.purple,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'ระยะทาง: $distanceText',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        _openMap(
-                          location['latitude'] as double,
-                          location['longitude'] as double,
-                        );
-                      },
-                      icon: const Icon(Icons.directions),
-                      label: const Text('นำทาง'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.shade700.withOpacity(0.1),
+                  spreadRadius: 2,
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
                 ),
               ],
+              border: Border.all(
+                color: Colors.blue.shade700.withOpacity(0.05),
+                width: 1.5,
+              ),
+            ),
+            child: Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade700.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blue.shade700.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                    offset: Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                location['name'].toString().contains('โรงพยาบาล') || location['name'].toString().contains('รพ.')
+                                    ? Icons.local_hospital
+                                    : location['name'].toString().contains('ตำรวจ') || location['name'].toString().contains('สภ.')
+                                    ? Icons.local_police
+                                    : location['name'].toString().contains('ร้านขายยา') || location['name'].toString().contains('ขายยา') || location['name'].toString().contains('เภสัช')
+                                    ? Icons.local_pharmacy
+                                    : Icons.medical_services,
+                                color: Colors.blue.shade700,
+                                size: 26,
+                              ),
+                            ),
+                            SizedBox(width: 15),
+                            Expanded(
+                              child: Text(
+                                location['name'] ?? 'ไม่ระบุชื่อ',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF333333),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                size: 18,
+                                color: Color.fromRGBO(230, 70, 70, 1.0),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  location['address'] ?? 'ไม่ระบุที่อยู่',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: Color(0xFF666666),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.directions_walk,
+                                size: 16,
+                                color: Colors.purple.shade700,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'ระยะทาง: $distanceText',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.purple.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _openMap(
+                            location['latitude'] as double,
+                            location['longitude'] as double,
+                          );
+                        },
+                        icon: const Icon(Icons.directions,color: Colors.green,),
+                        label: const Text(
+                          'นำทาง',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -375,7 +467,7 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
     return Scaffold(
       backgroundColor: const Color.fromRGBO(248, 248, 248, 1.0),
       appBar: AppBar(
-        backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
+        backgroundColor:  Colors.blue.shade700,
         elevation: 0,
         title: const Text(
           "สถานบริการฉุกเฉินใกล้ฉัน",
@@ -383,11 +475,12 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
             color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
           ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
           onPressed: () => Navigator.of(context).pop(),
         ),
         bottom: TabBar(
@@ -398,33 +491,43 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
           unselectedLabelColor: Colors.white.withOpacity(0.7),
           labelStyle: const TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 14,
+            fontSize: 13,
           ),
           isScrollable: false,
-          labelPadding: EdgeInsets.symmetric(horizontal: 8),
+          labelPadding: EdgeInsets.symmetric(horizontal: 4),
+          indicatorSize: TabBarIndicatorSize.tab,
+          dividerColor: Colors.transparent,
           tabs: const [
             Tab(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text('โรงพยาบาล'),
+              height: 40,
+              child: Text(
+                'โรงพยาบาล',
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.visible,
               ),
             ),
             Tab(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text('ตำรวจ'),
+              height: 40,
+              child: Text(
+                'ตำรวจ',
+                textAlign: TextAlign.center,
               ),
             ),
             Tab(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text('ดับเพลิง'),
+              height: 40,
+              child: Text(
+                'คลินิก',
+                textAlign: TextAlign.center,
               ),
             ),
             Tab(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text('คลินิก'),
+              height: 40,
+              child: Text(
+                'ร้านขายยา',
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.visible,
               ),
             ),
           ],
@@ -444,6 +547,7 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
+                    color: Color(0xFF333333),
                   ),
                 ),
                 Row(
@@ -457,7 +561,7 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
                         _fetchAllEmergencyLocations();
                       },
                       icon: const Icon(Icons.remove_circle_outline),
-                      color: Colors.red,
+                      color: Colors.red.shade700,
                       tooltip: 'ลดรัศมี',
                     ),
                     // ปุ่มสำหรับเพิ่มรัศมี
@@ -469,14 +573,14 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
                         _fetchAllEmergencyLocations();
                       },
                       icon: const Icon(Icons.add_circle_outline),
-                      color: Colors.green,
+                      color: Colors.green.shade700,
                       tooltip: 'เพิ่มรัศมี',
                     ),
                     // ปุ่มรีเฟรช
                     IconButton(
                       onPressed: _fetchAllEmergencyLocations,
                       icon: const Icon(Icons.refresh),
-                      color: Colors.blue,
+                      color: Colors.blue.shade700,
                       tooltip: 'รีเฟรช',
                     ),
                   ],
@@ -484,7 +588,7 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
               ],
             ),
           ),
-          
+
           // แสดงข้อมูลแต่ละแท็บ
           Expanded(
             child: TabBarView(
@@ -492,8 +596,8 @@ class EmergencyLocationsScreenState extends State<EmergencyLocationsScreen> with
               children: [
                 _buildLocationList(_hospitals),
                 _buildLocationList(_policeStations),
-                _buildLocationList(_fireStations),
                 _buildLocationList(_clinics),
+                _buildLocationList(_pharmacies),
               ],
             ),
           ),

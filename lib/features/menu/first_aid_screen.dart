@@ -117,28 +117,60 @@ class FirstAidScreenState extends State<FirstAidScreen> {
                 borderRadius: BorderRadius.circular(5),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.green.shade50,
+                    Colors.white,
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.healing,
-                    color: Colors.green,
-                    size: 30,
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade700.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.shade700.withOpacity(0.1),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.healing,
+                      color: Colors.green.shade700,
+                      size: 30,
+                    ),
                   ),
                   SizedBox(width: 15),
                   Expanded(
                     child: Text(
                       firstAid.title,
                       style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF333333),
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close, color: Colors.grey[600]),
+                    icon: Container(
+                      padding: EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.close, color: Colors.grey[600], size: 18),
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -146,71 +178,85 @@ class FirstAidScreenState extends State<FirstAidScreen> {
             ),
             Divider(thickness: 1, height: 1),
             Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "ขั้นตอนการปฐมพยาบาล",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                        height: 1.5,
-                      ),
-                    ),
-                    SizedBox(height: 15),
-                    Text(
-                      firstAid.content,
-                      style: TextStyle(
-                        fontSize: 17,
-                        height: 1.8,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    SizedBox(height: 30),
-                    Container(
-                      padding: EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.green[200]!),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.green[700],
-                            size: 24,
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              "ในกรณีฉุกเฉิน โทร 1669 เพื่อขอความช่วยเหลือทันที",
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                ),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade700,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.medical_services_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                            SizedBox(width: 12),
+                            Text(
+                              "ขั้นตอนการปฐมพยาบาล",
                               style: TextStyle(
-                                fontSize: 15,
-                                color: Colors.green[700],
-                                fontWeight: FontWeight.w500,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                height: 1.5,
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      SizedBox(height: 20),
+                      Container(
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: Colors.green.shade100),
+                        ),
+                        child: Text(
+                          firstAid.content,
+                          style: TextStyle(
+                            fontSize: 16,
+                            height: 1.8,
+                            color: Color(0xFF444444),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 2),
+
+                    ],
+                  ),
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.all(20),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: Offset(0, -5),
+                  ),
+                ],
+              ),
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: Colors.green.shade700,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  minimumSize: Size(double.infinity, 50),
+                  padding: EdgeInsets.symmetric(vertical: 15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -235,7 +281,7 @@ class FirstAidScreenState extends State<FirstAidScreen> {
     return Scaffold(
       backgroundColor: Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: Color(0xFFE64646),
+        backgroundColor: Colors.green.shade700,
         elevation: 0,
         title: const Text(
           "การปฐมพยาบาลเบื้องต้น",
@@ -243,11 +289,12 @@ class FirstAidScreenState extends State<FirstAidScreen> {
             color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
           ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: Colors.white, size: 22),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -255,30 +302,40 @@ class FirstAidScreenState extends State<FirstAidScreen> {
           ? _buildLoadingShimmer()
           : _hasError
           ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, color: Colors.red, size: 48),
-            SizedBox(height: 16),
-            Text(
-              _errorMessage,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.red[700],
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, color: Color.fromRGBO(230, 70, 70, 1.0), size: 48),
+                  SizedBox(height: 16),
+                  Text(
+                    _errorMessage,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF666666),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _loadFirstAidData,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color.fromRGBO(230, 70, 70, 1.0),
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      "ลองใหม่อีกครั้ง",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _loadFirstAidData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFFE64646),
-              ),
-              child: Text("ลองใหม่อีกครั้ง"),
-            ),
-          ],
-        ),
-      )
+            )
           : ListView.builder(
         padding: EdgeInsets.symmetric(vertical: 10),
         itemCount: _firstAidItems.length,
@@ -357,54 +414,88 @@ class FirstAidScreenState extends State<FirstAidScreen> {
     required VoidCallback onTap,
   }) {
     return Container(
-      margin: EdgeInsets.fromLTRB(16, 5, 16, 10),
+      margin: EdgeInsets.fromLTRB(16, 8, 16, 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            color: Colors.green.shade700.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 15,
+            offset: Offset(0, 5),
           ),
         ],
+        border: Border.all(
+          color: Colors.green.shade700.withOpacity(0.05),
+          width: 1.5,
+        ),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(18),
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.all(10),
+                  padding: EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
+                    color: Colors.green.shade700.withOpacity(0.2),
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.shade700.withOpacity(0.1),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     Icons.healing,
-                    color: Colors.green,
-                    size: 24,
+                    color: Colors.green.shade700,
+                    size: 26,
                   ),
                 ),
-                SizedBox(width: 15),
+                SizedBox(width: 18),
                 Expanded(
-                  child: Text(
-                    firstAid.title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        firstAid.title,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF333333),
+                          height: 1.3,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        "แตะเพื่อดูขั้นตอนการปฐมพยาบาล",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.grey[400],
-                  size: 16,
+                Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.green.shade700,
+                    size: 14,
+                  ),
                 ),
               ],
             ),

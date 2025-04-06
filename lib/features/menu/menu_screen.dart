@@ -7,6 +7,7 @@ import 'emergency_phone_screen.dart';
 import 'first_aid_screen.dart';
 import 'news_screen.dart';
 import 'emergency_locations_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({Key? key}) : super(key: key);
@@ -46,113 +47,164 @@ class MenuScreenState extends State<MenuScreen> {
     }
   }
 
+  void launchEmergencyCall() async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: '1669',
+    );
+
+    try {
+      await launchUrl(launchUri);
+    } catch (e) {
+      // จัดการข้อผิดพลาดเมื่อไม่สามารถโทรได้
+      print('ไม่สามารถโทรออกได้: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(248, 248, 248, 1.0),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: const Color.fromRGBO(230, 70, 70, 1.0),
         elevation: 0,
         title: const Text(
-          "เมนูบริการฉุกเฉิน",
+          "บริการช่วยเหลือฉุกเฉิน",
           style: TextStyle(
             color: Colors.white,
-            fontSize: 20,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
+            letterSpacing: 0.3,
           ),
         ),
         centerTitle: true,
         automaticallyImplyLeading: false,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "บริการช่วยเหลือฉุกเฉิน",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF333333),
+        child: Column(
+          children: [
+            Expanded(
+              child: GridView.count(
+                physics: const BouncingScrollPhysics(),
+                crossAxisCount: 2,
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                childAspectRatio: 0.8,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                children: [
+                  _buildGridItem(
+                    title: "เบอร์โทร\nฉุกเฉิน",
+                    subtitle: "ติดต่อช่วยเหลือด่วน",
+                    iconColor: Colors.red,
+                    icon: Icons.phone_in_talk_rounded,
+                    iconBackgroundColor: Colors.red.shade100,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const EmergencyPhoneScreen()),
+                      );
+                    },
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  "เลือกบริการที่ต้องการใช้งาน",
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Color(0xFF666666),
-                    height: 1.5,
+                  _buildGridItem(
+                    title: "ปฐมพยาบาล\nเบื้องต้น",
+                    subtitle: "คำแนะนำเมื่อเกิดเหตุ",
+                    iconColor: Colors.green,
+                    icon: Icons.medical_services_rounded,
+                    iconBackgroundColor: Colors.green.shade100,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const FirstAidScreen()),
+                      );
+                    },
                   ),
-                ),
-                const SizedBox(height: 24),
-                _buildMenuCard(
-                  "เบอร์โทรฉุกเฉิน",
-                  "ติดต่อความช่วยเหลือด่วน",
-                  "รวมเบอร์โทรศัพท์สำคัญสำหรับเหตุฉุกเฉิน เช่น ตำรวจ ดับเพลิง และหน่วยกู้ชีพ ที่สามารถติดต่อได้ตลอด 24 ชั่วโมง",
-                  "assets/images/phone_emergency.png",
-                  Icons.phone_in_talk_rounded,
-                  Colors.red.shade700,
-                  () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const EmergencyPhoneScreen()),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildMenuCard(
-                  "ปฐมพยาบาลเบื้องต้น",
-                  "คำแนะนำเมื่อเกิดเหตุฉุกเฉิน",
-                  "คู่มือวิธีการปฐมพยาบาลเบื้องต้นในสถานการณ์ฉุกเฉินต่างๆ เช่น การทำ CPR การห้ามเลือด และการช่วยเหลือผู้ป่วยฉุกเฉิน",
-                  "assets/images/first_aid.png",
-                  Icons.medical_services_rounded,
-                  Colors.green.shade700,
-                  () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const FirstAidScreen()),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildMenuCard(
-                  "สถานบริการฉุกเฉินใกล้ฉัน",
-                  "ค้นหาความช่วยเหลือใกล้ตัว",
-                  "ค้นหาโรงพยาบาล สถานีตำรวจ สถานีดับเพลิง และคลินิกที่อยู่ใกล้ตำแหน่งปัจจุบันของคุณ พร้อมข้อมูลการติดต่อและเส้นทาง",
-                  "assets/images/location.png",
-                  Icons.location_on_rounded,
-                  Colors.blue.shade700,
-                  () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const EmergencyLocationsScreen()),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildMenuCard(
-                  "ข่าวสารและประกาศ",
-                  "ข้อมูลสำคัญที่ควรทราบ",
-                  "ติดตามข่าวสารและประกาศสำคัญเกี่ยวกับสถานการณ์ฉุกเฉิน ภัยพิบัติ และคำเตือนต่างๆ ที่ควรทราบ",
-                  "assets/images/news.png",
-                  Icons.campaign_rounded,
-                  Colors.orange.shade700,
-                  () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const NewsScreen()),
-                    );
-                  },
-                ),
-              ],
+                  _buildGridItem(
+                    title: "สถานบริการ\nฉุกเฉินใกล้ฉัน",
+                    subtitle: "ค้นหาความช่วยเหลือ",
+                    iconColor: Colors.blue,
+                    icon: Icons.location_on_rounded,
+                    iconBackgroundColor: Colors.blue.shade100,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const EmergencyLocationsScreen()),
+                      );
+                    },
+                  ),
+                  _buildGridItem(
+                    title: "ข่าวสารและ\nประกาศ",
+                    subtitle: "ข้อมูลสำคัญที่ควร",
+                    iconColor: Colors.orange,
+                    icon: Icons.campaign_rounded,
+                    iconBackgroundColor: Colors.orange.shade100,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const NewsScreen()),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade100,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.info_outline,
+                      color: Colors.red,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          "ติดต่อฉุกเฉิน",
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          "ในกรณีฉุกเฉิน โทร 1669 เพื่อขอความช่วยเหลือทันที",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
@@ -162,109 +214,87 @@ class MenuScreenState extends State<MenuScreen> {
     );
   }
 
-  Widget _buildMenuCard(String title, String subtitle, String description, String imagePath, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildGridItem({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBackgroundColor,
+    required VoidCallback onTap,
+  }) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.15),
-            spreadRadius: 2,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: const Offset(0, 2),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade100),
       ),
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
+      child: Material(
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            height: double.infinity,
+            child: Stack(
               children: [
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // ไอคอนวงกลม
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(16),
+                        color: iconBackgroundColor,
+                        shape: BoxShape.circle,
                       ),
                       child: Icon(
                         icon,
-                        color: color,
-                        size: 36,
+                        color: iconColor,
+                        size: 22,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF333333),
-                              height: 1.3,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            subtitle,
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey[600],
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 10),
+                    // หัวเรื่อง
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
+                    ),
+                    const SizedBox(height: 2),
+                    // คำอธิบาย
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 17,
-                    color: Colors.grey[700],
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "เข้าดูรายละเอียด",
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.arrow_back,
-                        color: color,
-                        size: 24,
-                      ),
-                    ],
+                Positioned(
+                  left: 0,
+                  bottom: 0,
+                  child: Text(
+                    "เข้าดูเพิ่มเติม >",
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],

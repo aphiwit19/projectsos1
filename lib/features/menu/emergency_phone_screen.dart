@@ -36,8 +36,11 @@ class EmergencyPhoneScreenState extends State<EmergencyPhoneScreen> {
       });
       final numbers = await _emergencyNumberService.getEmergencyNumbers();
       setState(() {
-        emergencyNumbers = numbers;
-        for (var number in numbers) {
+        emergencyNumbers = numbers.where((number) =>
+        number.category != "แจ้งเหตุจราจร-ขอความช่วยเหลือ").toList();
+
+        categories = [];
+        for (var number in emergencyNumbers) {
           if (!categories.contains(number.category)) {
             categories.add(number.category);
           }
