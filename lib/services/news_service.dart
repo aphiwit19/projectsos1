@@ -12,6 +12,7 @@ class NewsService {
       debugPrint('Fetching all news from Firestore...');
       QuerySnapshot snapshot = await _firestore
           .collection('news')
+          .orderBy('date', descending: true)
           .get();
       
       debugPrint('Fetched ${snapshot.docs.length} news items');
