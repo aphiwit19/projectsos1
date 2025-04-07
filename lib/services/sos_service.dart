@@ -297,6 +297,12 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
         'failedTo': failedNumbers,
         'status': sentNumbers.isNotEmpty ? 'success' : 'failed',
         'detectionSource': detectionSource,
+        'mapLink': 'https://maps.google.com/?q=${position.latitude},${position.longitude}',
+        'message': 'SOS ส่งเมื่อ ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+        'recipients': sentNumbers,
+        'userInfo': {
+          'userId': userId,
+        },
       };
       
       // บันทึกลงฐานข้อมูล
@@ -334,14 +340,31 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
         return [];
       }
 
-      QuerySnapshot snapshot = await _firestore
+      // ลองดึงข้อมูลจากคอลเลกชัน sos_events ก่อน
+      QuerySnapshot eventsSnapshot = await _firestore
+          .collection('Users')
+          .doc(email)
+          .collection('sos_events')
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      if (eventsSnapshot.docs.isNotEmpty) {
+        print('พบข้อมูลประวัติ SOS จำนวน ${eventsSnapshot.docs.length} รายการในคอลเลกชัน sos_events');
+        return eventsSnapshot.docs
+            .map((doc) => SosLog.fromJson(doc.data() as Map<String, dynamic>, doc.id))
+            .toList();
+      }
+
+      // ถ้าไม่พบข้อมูลใน sos_events ให้ลองดึงจาก sos_logs (เผื่อเป็นข้อมูลเก่า)
+      QuerySnapshot logsSnapshot = await _firestore
           .collection('Users')
           .doc(email)
           .collection('sos_logs')
           .orderBy('timestamp', descending: true)
           .get();
 
-      return snapshot.docs
+      print('พบข้อมูลประวัติ SOS จำนวน ${logsSnapshot.docs.length} รายการในคอลเลกชัน sos_logs');
+      return logsSnapshot.docs
           .map((doc) => SosLog.fromJson(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } on Exception catch (e) {
@@ -359,16 +382,39 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
         return false;
       }
 
-      // ลบเอกสารจาก Firestore
-      await _firestore
-          .collection('Users')
-          .doc(email)
-          .collection('sos_logs')
-          .doc(sosLogId)
-          .delete();
+      bool success = false;
+
+      try {
+        // ลองลบจากคอลเลกชัน sos_events ก่อน
+        await _firestore
+            .collection('Users')
+            .doc(email)
+            .collection('sos_events')
+            .doc(sosLogId)
+            .delete();
+        
+        debugPrint('SOS log deleted successfully from sos_events: $sosLogId');
+        success = true;
+      } catch (e) {
+        debugPrint('Error or not found when deleting from sos_events: $e');
+      }
+
+      try {
+        // ลองลบจากคอลเลกชัน sos_logs (เผื่อเป็นข้อมูลเก่า)
+        await _firestore
+            .collection('Users')
+            .doc(email)
+            .collection('sos_logs')
+            .doc(sosLogId)
+            .delete();
+        
+        debugPrint('SOS log deleted successfully from sos_logs: $sosLogId');
+        success = true;
+      } catch (e) {
+        debugPrint('Error or not found when deleting from sos_logs: $e');
+      }
       
-      debugPrint('SOS log deleted successfully: $sosLogId');
-      return true;
+      return success;
     } on Exception catch (e) {
       debugPrint('Error deleting SOS log: $e');
       return false;

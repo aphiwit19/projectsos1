@@ -31,9 +31,30 @@ class SosLog {
       extraData.remove(key);
     });
     
+    // แปลง timestamp ให้เป็นชนิด Timestamp ไม่ว่าจะเป็น String หรือ Timestamp
+    Timestamp timestampValue;
+    if (json['timestamp'] == null) {
+      timestampValue = Timestamp.now();
+    } else if (json['timestamp'] is Timestamp) {
+      timestampValue = json['timestamp'];
+    } else if (json['timestamp'] is String) {
+      try {
+        // พยายามแปลง String เป็น DateTime แล้วแปลงเป็น Timestamp
+        final dateTime = DateTime.parse(json['timestamp']);
+        timestampValue = Timestamp.fromDate(dateTime);
+      } catch (e) {
+        print('ไม่สามารถแปลง timestamp จาก String ได้: ${json['timestamp']} - $e');
+        timestampValue = Timestamp.now();
+      }
+    } else {
+      // กรณีที่เป็นชนิดอื่น ให้ใช้เวลาปัจจุบัน
+      print('timestamp เป็นชนิดที่ไม่รองรับ: ${json['timestamp'].runtimeType}');
+      timestampValue = Timestamp.now();
+    }
+    
     return SosLog(
       id: id,
-      timestamp: json['timestamp'] ?? Timestamp.now(),
+      timestamp: timestampValue,
       location: Map<String, double>.from(json['location'] ?? {}),
       mapLink: json['mapLink'] ?? '',
       message: json['message'] ?? '',
