@@ -157,7 +157,7 @@ ${detectionSource == 'automatic' ? '[ระบบตรวจพบการล�
       } else {
         print('SOS Service: ไม่มีการบันทึกประวัติ SOS เนื่องจากส่ง SMS ไม่สำเร็จ');
       }
-
+      
       // คืนค่าผลลัพธ์
       if (smsResult.statuses.values.any((status) => status == SmsStatus.noCredit)) {
         return {

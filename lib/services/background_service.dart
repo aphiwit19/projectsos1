@@ -220,21 +220,6 @@ void onStart(ServiceInstance service) async {
         }
         */
         
-        // บันทึกการตรวจพบการล้มลง Firestore ในคอลเลกชัน sos_logs 
-        await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(user.email)
-            .collection('sos_logs')
-            .add({
-              'timestamp': FieldValue.serverTimestamp(),
-              'confirmed': false,
-              'action_taken': 'notification_shown',
-              'detection_type': 'automatic',
-              'status': 'pending',
-              'message': 'ตรวจพบการล้ม รอการยืนยัน',
-              'detectionSource': 'automatic',
-            });
-        
         // เรียกใช้ NotificationService เพื่อแสดงการแจ้งเตือนพร้อมเสียงและตัวนับเวลา
         await NotificationService().showFallDetectionAlert(
           notificationId: 888,
