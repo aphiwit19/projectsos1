@@ -249,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Padding(
               padding: EdgeInsets.only(bottom: 20),
               child: Text(
-                "กดปุ่มSOS เพื่อขอความช่วยเหลือ",
+                "กดปุ่มSOS เพื่อขอความช่วยเหลือ11",
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.black,
