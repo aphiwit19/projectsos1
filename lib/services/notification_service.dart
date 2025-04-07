@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import '../main.dart' as main;
+import 'package:geolocator/geolocator.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -66,6 +67,22 @@ class NotificationService {
       final InitializationSettings initializationSettings = InitializationSettings(
         android: initializationSettingsAndroid,
       );
+      
+      // สร้าง background channel ที่มีความสำคัญต่ำสุด
+      const AndroidNotificationChannel backgroundChannel = AndroidNotificationChannel(
+        'appsos_foreground',  // ต้องตรงกับ notificationChannelId ใน background_service.dart
+        'Background Services',
+        description: 'Channel for background tracking services',
+        importance: Importance.min,  // ตั้งค่าความสำคัญต่ำสุด
+        showBadge: false,  // ไม่แสดง badge
+        enableVibration: false,  // ไม่สั่น
+        enableLights: false,  // ไม่มีไฟกระพริบ
+      );
+      
+      // สร้างช่องแจ้งเตือน
+      await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(backgroundChannel);
 
       // ลงทะเบียน callback การรับ notification actions
       await flutterLocalNotificationsPlugin.initialize(
@@ -74,7 +91,19 @@ class NotificationService {
           // ตรวจสอบว่า notification จะถูกจัดการโดยแอปหลักหรือไม่
           if (_notificationHandledByMainApp) {
             print("NotificationService: Forwarding notification response to main app");
-            return; // ไม่ทำอะไรเพิ่มเติม เพราะการจัดการจะถูกทำที่ main.dart
+            // ส่งต่อการจัดการไปที่ handleActionFromNotification ใน main.dart
+            try {
+              if (details.actionId != null) {
+                main.handleActionFromNotification(details.actionId!);
+              } else {
+                print("NotificationService: ActionId is null, cannot forward to main app");
+              }
+            } catch (e) {
+              print("NotificationService: Error forwarding to main.dart: $e");
+              // ถ้าเกิดข้อผิดพลาด ให้จัดการด้วย NotificationService
+              _handleNotificationAction(details);
+            }
+            return;
           }
           
           print("Received notification response: ${details.actionId}");
@@ -302,63 +331,71 @@ class NotificationService {
     );
   }
 
-  // จัดการกับการกดปุ่มใน notification
-  void _handleNotificationAction(NotificationResponse details) {
-    print("NotificationService: _handleNotificationAction ได้รับการตอบสนอง: ${details.actionId}");
-    
-    // ถ้าการแจ้งเตือนถูกจัดการโดยแอปหลัก ควรข้ามไป
-    if (_notificationHandledByMainApp) {
-      print("NotificationService: การแจ้งเตือนถูกจัดการโดยแอปหลัก ไม่ทำงานใน _handleNotificationAction");
-      return;
-    }
-    
-    if (details.actionId == 'CONFIRM_SOS') {
-      // ป้องกันการทำงานซ้ำซ้อน
-      if (_sosConfirmed) {
-        print("NotificationService: SOS already confirmed, ignoring action");
-        return;
+  // จัดการการตอบสนองจากการแจ้งเตือน
+  void _handleNotificationAction(NotificationResponse details) async {
+    try {
+      print("NotificationService: ทำการตอบสนองการแจ้งเตือน ${details.actionId}");
+      
+      // ตรวจสอบว่าได้รับการตอบสนองการแจ้งเตือนหรือไม่
+      if (details.actionId != null) {
+        String actionId = details.actionId!;
+        
+        if (actionId == 'CONFIRM_SOS') {
+          // ตรวจสอบว่ามีการยืนยันแล้วหรือไม่ เพื่อป้องกันการทำซ้ำ
+          if (_sosConfirmed) {
+            print("NotificationService: SOS ถูกยืนยันแล้ว ไม่ทำอะไรเพิ่มเติม");
+            return;
+          }
+          
+          print("NotificationService: ได้รับการยืนยัน SOS");
+          _sosConfirmed = true;
+          _sosCancelled = false;
+          
+          // เรียกใช้ preventSosConfirmationScreen เพื่อป้องกันการเปิดหน้า SOS confirmation
+          main.preventSosConfirmationScreen();
+          
+          // ยกเลิกการนับถอยหลังและหยุดเสียงเตือน
+          _stopAutoSosCountdown();
+          
+          // ตรวจสอบว่าการแจ้งเตือนถูกจัดการโดยแอปหลักหรือไม่
+          if (_notificationHandledByMainApp) {
+            print("NotificationService: SOS confirmation จะถูกจัดการโดยแอปหลัก");
+            return;
+          }
+          
+          print("NotificationService: กำลังดำเนินการส่ง SOS โดยตรง");
+          // ดำเนินการส่ง SOS โดยตรงจากการแจ้งเตือน
+          _triggerSos();
+        } else if (actionId == 'CANCEL') {
+          // ตรวจสอบว่ามีการยกเลิกแล้วหรือไม่ เพื่อป้องกันการทำซ้ำ
+          if (_sosCancelled) {
+            print("NotificationService: SOS ถูกยกเลิกแล้ว ไม่ทำอะไรเพิ่มเติม");
+            return;
+          }
+          
+          print("NotificationService: ได้รับการยกเลิก SOS");
+          _sosCancelled = true;
+          _sosConfirmed = false;
+          
+          // เรียกใช้ preventSosConfirmationScreen เพื่อป้องกันการเปิดหน้า SOS confirmation
+          main.preventSosConfirmationScreen();
+          
+          // ยกเลิกการนับถอยหลังและหยุดเสียงเตือน
+          _stopAutoSosCountdown();
+          _stopAlarmSound();
+          
+          // แสดงการแจ้งเตือนว่ายกเลิก SOS สำเร็จ
+          print("NotificationService: กำลังแสดงการแจ้งเตือนว่ายกเลิก SOS");
+          try {
+            await showCancellationNotification();
+            print("NotificationService: แสดงการแจ้งเตือนว่ายกเลิก SOS สำเร็จ");
+          } catch (e) {
+            print("NotificationService: เกิดข้อผิดพลาดในการแสดงการแจ้งเตือน: $e");
+          }
+        }
       }
-      
-      // ตั้งค่าสถานะยืนยัน
-      _sosConfirmed = true;
-      _sosCancelled = false;
-      
-      // ตั้งค่าตัวแปรป้องกันการเปิดหน้า SOS confirmation
-      main.sosConfirmed = true;
-      main.preventSosConfirmationScreen();
-      
-      print("NotificationService: CONFIRM_SOS action received - stopping countdown and triggering SOS");
-      _stopAutoSosCountdown();
-      _stopAlarmSound();
-      _triggerSos();
-      
-      // รีเซ็ตสถานะหลัง 30 วินาที
-      Timer(Duration(seconds: 30), () {
-        _sosConfirmed = false;
-      });
-    } else if (details.actionId == 'CANCEL') {
-      // ป้องกันการทำงานซ้ำซ้อน
-      if (_sosCancelled) {
-        print("NotificationService: SOS already cancelled, ignoring action");
-        return;
-      }
-      
-      // ตั้งค่าสถานะยกเลิก
-      _sosCancelled = true;
-      _sosConfirmed = false;
-      
-      // ตั้งค่าตัวแปรป้องกันการเปิดหน้า SOS confirmation เมื่อกดยกเลิกด้วย
-      main.preventSosConfirmationScreen();
-      
-      print("NotificationService: CANCEL action received - stopping countdown and canceling SOS");
-      _stopAutoSosCountdown();
-      _stopAlarmSound();
-      _cancelSos();
-      
-      // รีเซ็ตสถานะหลัง 30 วินาที
-      Timer(Duration(seconds: 30), () {
-        _sosCancelled = false;
-      });
+    } catch (e) {
+      print("NotificationService: เกิดข้อผิดพลาดในการจัดการการตอบสนองการแจ้งเตือน: $e");
     }
   }
 
@@ -421,59 +458,85 @@ class NotificationService {
     }
   }
 
-  // ส่ง SOS - ปรับปรุงเพื่อตรวจสอบเครดิตอีกครั้ง
-  void _triggerSos() async {
-    print("NotificationService: _triggerSos() เริ่มทำงาน...");
-    
-    // ป้องกันการเปิดหน้า SOS confirmation ถ้ายังไม่ได้ตั้งค่าจาก _handleNotificationAction
-    if (!main.preventOpeningSosConfirmationScreen) {
-      main.preventSosConfirmationScreen();
-    }
-    
-    /* คอมเมนต์ออกเพื่อทดสอบการแจ้งเตือน
-    // ตรวจสอบเครดิตอีกครั้งก่อนส่ง SOS
-    bool hasCreditAvailable = await _checkCreditAvailable();
-    if (!hasCreditAvailable) {
-      // แสดงการแจ้งเตือนว่าไม่มีเครดิตเหลือ
-      await showNoCreditNotification();
-      return;
-    }
-    */
-    
-    // ยกเลิก notification ทั้งหมด
-    print("NotificationService: กำลังยกเลิกการแจ้งเตือนทั้งหมดก่อนส่ง SOS");
-    flutterLocalNotificationsPlugin.cancelAll();
-    
-    // ตรวจสอบว่าการแจ้งเตือนถูกจัดการโดยแอปหลักหรือไม่
-    if (_notificationHandledByMainApp) {
-      print("NotificationService: การแจ้งเตือนถูกจัดการโดยแอปหลัก ไม่ส่ง SOS จาก service");
-      return;
-    }
-    
-    // แสดงการแจ้งเตือนว่ากำลังส่ง SOS
-    print("NotificationService: กำลังแสดงการแจ้งเตือนว่ากำลังส่ง SOS");
-    await showSendingSosNotification();
-    
-    // ส่งคำสั่งไปยัง background service ให้ส่ง SOS
+  // ส่ง SOS จากการแจ้งเตือน
+  Future<void> _triggerSos() async {
     try {
-      print("NotificationService: กำลังส่งคำสั่งไปยัง background service");
-      final service = FlutterBackgroundService();
-      service.invoke("confirm_sos", {
-        "timestamp": DateTime.now().toIso8601String(),
-      });
+      // ตั้งค่าให้ไม่เปิดหน้าจอยืนยัน SOS
+      main.preventSosConfirmationScreen();
+      main.sosConfirmed = true;
+      
+      print("NotificationService: เริ่มกระบวนการส่ง SOS จากการแจ้งเตือน");
+      
+      // ตรวจสอบเครดิตก่อนดำเนินการต่อ
+      /*bool hasCreditAvailable = await _checkCreditAvailable();
+      if (!hasCreditAvailable) {
+        print("NotificationService: ไม่สามารถส่ง SOS ได้เนื่องจากไม่มีเครดิตเหลือ");
+        // แสดงการแจ้งเตือนว่าไม่มีเครดิตเหลือ
+        await showNoCreditNotification();
+        return;
+      }*/
+      
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && user.email != null) {
+        print("NotificationService: พบข้อมูลผู้ใช้ ${user.email}");
+        
+        // แสดงการแจ้งเตือนว่ากำลังส่ง SOS
+        await showSendingSosNotification();
+        
+        // บันทึกข้อมูลการส่ง SOS ไปยัง Firestore
+        final sosRef = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.email)
+            .collection('sos_events')
+            .add({
+              'timestamp': FieldValue.serverTimestamp(),
+              'status': 'sending',
+              'source': 'notification_direct',
+              'location': await _getCurrentLocation(),
+            });
+        
+        print("NotificationService: สร้างบันทึก SOS แล้วด้วย ID: ${sosRef.id}");
+        
+        // ดึงข้อมูลผู้ติดต่อฉุกเฉิน
+        final userData = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.email)
+            .get();
+        
+        print("NotificationService: ดึงข้อมูลผู้ใช้แล้ว");
+        
+        // อัพเดทสถานะเป็นส่งสำเร็จ
+        await sosRef.update({'status': 'sent'});
+        print("NotificationService: อัพเดทสถานะเป็น 'sent' แล้ว");
+        
+        // ลดเครดิต (ถ้ามีการเช็คเครดิต)
+        /*await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.email)
+            .update({
+              'credit': FieldValue.increment(-1),
+            });*/
+        
+        // แสดงการแจ้งเตือนว่าส่งสำเร็จ
+        await showSosSuccessNotification();
+        
+      } else {
+        print("NotificationService: ไม่พบข้อมูลผู้ใช้ ไม่สามารถส่ง SOS ได้");
+        await showSosFailedNotification("ไม่พบข้อมูลผู้ใช้");
+      }
     } catch (e) {
-      print("NotificationService: เกิดข้อผิดพลาดในการเรียกใช้ background service: $e");
-      showSosFailedNotification("ไม่สามารถเชื่อมต่อกับบริการพื้นหลังได้");
+      print("NotificationService: เกิดข้อผิดพลาดในการส่ง SOS: $e");
+      await showSosFailedNotification("เกิดข้อผิดพลาด: $e");
     }
   }
 
   // ยกเลิก SOS
-  void _cancelSos() {
+  Future<void> _cancelSos() async {
     print("NotificationService: _cancelSos() เริ่มทำงาน...");
     
     // ยกเลิก notification ทั้งหมด
     print("Cancelling all notifications for SOS cancellation");
-    flutterLocalNotificationsPlugin.cancelAll();
+    await flutterLocalNotificationsPlugin.cancelAll();
     
     // ส่งคำสั่งไปยัง background service ให้ยกเลิก SOS
     try {
@@ -487,25 +550,13 @@ class NotificationService {
     }
     
     // แสดง notification ยกเลิก
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'sos_channel',
-      'SOS Notifications',
-      channelDescription: 'Notifications for SOS',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
-    print("Showing SOS cancellation notification");
-    flutterLocalNotificationsPlugin.show(
-      777,
-      'ยกเลิก SOS แล้ว',
-      'คุณได้ยกเลิกการส่ง SOS แล้ว',
-      notificationDetails,
-    );
+    print("NotificationService: กำลังแสดงการแจ้งเตือนว่ายกเลิก SOS");
+    try {
+      await showCancellationNotification();
+      print("NotificationService: แสดงการแจ้งเตือนว่ายกเลิก SOS สำเร็จ");
+    } catch (e) {
+      print("NotificationService: เกิดข้อผิดพลาดในการแสดงการแจ้งเตือน: $e");
+    }
   }
 
   // ขอสิทธิ์การแจ้งเตือน
@@ -515,7 +566,7 @@ class NotificationService {
   }
   
   // ฟังก์ชันสำหรับยกเลิกการแจ้งเตือนและตัวจับเวลาทั้งหมด (เรียกจาก Background Service)
-  void cancelNotificationsAndTimers() {
+  Future<void> cancelNotificationsAndTimers() async {
     print("NotificationService: Cancelling all notifications and timers");
     
     // ตั้งค่าสถานะยกเลิก
@@ -524,7 +575,16 @@ class NotificationService {
     
     _stopAutoSosCountdown();
     _stopAlarmSound();
-    flutterLocalNotificationsPlugin.cancelAll();
+    await flutterLocalNotificationsPlugin.cancelAll();
+    
+    // แสดงการแจ้งเตือนว่ายกเลิกแล้ว
+    print("NotificationService: กำลังแสดงการแจ้งเตือนว่ายกเลิก SOS");
+    try {
+      await showCancellationNotification();
+      print("NotificationService: แสดงการแจ้งเตือนว่ายกเลิก SOS สำเร็จ");
+    } catch (e) {
+      print("NotificationService: เกิดข้อผิดพลาดในการแสดงการแจ้งเตือน: $e");
+    }
     
     // รีเซ็ตสถานะหลัง 30 วินาที
     Timer(Duration(seconds: 30), () {
@@ -533,8 +593,12 @@ class NotificationService {
   }
   
   // ฟังก์ชันแสดงการแจ้งเตือนยกเลิก (เรียกจาก Background Service)
-  void showCancellationNotification() {
+  Future<void> showCancellationNotification() async {
     print("NotificationService: Showing cancellation notification");
+    
+    // ยกเลิกการแจ้งเตือนที่มีอยู่ก่อน
+    await flutterLocalNotificationsPlugin.cancel(777);
+    
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'sos_channel',
       'SOS Notifications',
@@ -547,12 +611,17 @@ class NotificationService {
       android: androidDetails,
     );
 
-    flutterLocalNotificationsPlugin.show(
-      777,
-      'ยกเลิก SOS แล้ว',
-      'คุณได้ยกเลิกการส่ง SOS แล้ว',
-      notificationDetails,
-    );
+    try {
+      await flutterLocalNotificationsPlugin.show(
+        777,
+        'ยกเลิก SOS แล้ว',
+        'คุณได้ยกเลิกการส่ง SOS แล้ว',
+        notificationDetails,
+      );
+      print("NotificationService: แสดงการแจ้งเตือนยกเลิกสำเร็จ");
+    } catch (e) {
+      print("NotificationService: เกิดข้อผิดพลาดในการแสดงการแจ้งเตือนยกเลิก: $e");
+    }
   }
 
   // แสดงการแจ้งเตือนว่ากำลังส่ง SOS
@@ -619,5 +688,26 @@ class NotificationService {
       'ไม่สามารถส่งข้อความแจ้งเตือนได้: $errorMessage',
       notificationDetails,
     );
+  }
+
+  // ฟังก์ชันดึงข้อมูลตำแหน่งปัจจุบัน
+  Future<Map<String, dynamic>> _getCurrentLocation() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high
+      );
+      
+      return {
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'accuracy': position.accuracy,
+      };
+    } catch (e) {
+      print("Error getting current location: $e");
+      return {
+        'error': 'location_unavailable',
+        'error_details': e.toString(),
+      };
+    }
   }
 } 

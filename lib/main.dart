@@ -48,10 +48,22 @@ void handleActionFromNotification(String actionId) async {
     sosCancelled = true;
     sosConfirmed = false;
     
+    // ป้องกันการเปิดหน้า SOS confirmation
+    preventSosConfirmationScreen();
+    
     // ยกเลิกการส่ง SOS จาก background service
     service.invoke("cancel_sos", {
       "timestamp": DateTime.now().toIso8601String(),
     });
+    
+    // แสดงการแจ้งเตือนว่ายกเลิก SOS สำเร็จ
+    print("Main: กำลังแสดงการแจ้งเตือนว่ายกเลิก SOS สำเร็จ");
+    try {
+      await NotificationService().showCancellationNotification();
+      print("Main: แสดงการแจ้งเตือนว่ายกเลิก SOS สำเร็จแล้ว");
+    } catch (e) {
+      print("Main: เกิดข้อผิดพลาดในการแสดงการแจ้งเตือน: $e");
+    }
     
     // รีเซ็ตสถานะหลัง 30 วินาที
     Timer(Duration(seconds: 30), () {
@@ -224,25 +236,19 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); // เริ่มต้น Firebase
   // await FirebaseAuth.instance.signOut(); // ล็อกเอาท์ผู้ใช้ทั้งหมด (เพื่อทดสอบ)
-
+  
   // เพิ่มการ seed ข้อมูลเบอร์โทรฉุกเฉิน
   await seedEmergencyNumbers();
   
-  // เพิ่มการ seed ข้อมูลการปฐมพยาบาล
+  // เพิ่มข้อมูลปฐมพยาบาลเบื้องต้น
   await seedFirstAidData();
   
-  // เพิ่มการ seed ข้อมูลข่าวสาร
+  // เพิ่มข้อมูลข่าวล่าสุด
   await seedNewsData();
-
-  // เริ่มต้น locale สำหรับ intl
-  await initializeDateFormatting('th', null);
-
-  // ขอสิทธิ์ที่จำเป็น
-  await _requestPermissions();
   
   // เริ่มต้น background service
   await initializeService();
-  
+   
   // เริ่มต้น NotificationService
   await NotificationService().initialize();
   
@@ -271,7 +277,7 @@ void main() async {
   } catch (e) {
     print("Main: เกิดข้อผิดพลาดในการลงทะเบียนตัวรับการแจ้งเตือน: $e");
   }
-
+  
   // ฟังก์ชันตรวจสอบ global cooldown
   bool canProcessFallDetection() {
     if (isProcessingFallDetection) return false;

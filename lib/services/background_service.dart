@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:sensors_plus/sensors_plus.dart'; // เพิ่ม import สำหรับเซนเซอร์
 import 'firebase_service.dart';
 import 'notification_service.dart'; // เพิ่ม import สำหรับ notification service
+import 'package:flutter/material.dart'; // นำเข้า Material package เพื่อใช้ enum ของ Android
 
 // เพิ่มค่าคงที่สำหรับการตรวจจับการล้ม
 const double ACCELERATION_THRESHOLD = 23.0; // เพิ่มขึ้นเล็กน้อยเพื่อลดความไว
@@ -18,6 +19,29 @@ const double STABILITY_THRESHOLD = 2.0;
 const int STABILITY_CHECK_DELAY = 500; // ms
 const int COOLDOWN_PERIOD = 20000; // เพิ่มเป็น 20 วินาที
 const int RECENT_DATA_SIZE = 20; // จำนวนข้อมูลเซนเซอร์ที่เก็บไว้
+
+// ฟังก์ชันอัพเดทตำแหน่ง - ย้ายมาไว้ด้านนอกเพื่อให้ใช้ได้ในทุกส่วน
+Future<void> updateLocation(Position position) async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email != null) {
+      await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(user.email)
+          .update({
+        'last_location': {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'accuracy': position.accuracy,
+          'timestamp': FieldValue.serverTimestamp(),
+        },
+      });
+      print('=== LOCATION UPDATED: ${position.latitude}, ${position.longitude} ===');
+    }
+  } catch (e) {
+    print('=== ERROR UPDATING LOCATION: $e ===');
+  }
+}
 
 Future<void> initializeService() async {
   final service = FlutterBackgroundService();
@@ -52,6 +76,12 @@ Future<void> initializeService() async {
 }
 
 @pragma('vm:entry-point')
+Future<bool> onIosBackground(ServiceInstance service) async {
+  final FlutterBackgroundService service = FlutterBackgroundService();
+  return await service.isRunning();
+}
+
+@pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   try {
     print('=== BACKGROUND SERVICE STARTED ===');
@@ -59,9 +89,10 @@ void onStart(ServiceInstance service) async {
     
     if (service is AndroidServiceInstance) {
       await service.setAsForegroundService();
+      // ปรับปรุงข้อความในการแจ้งเตือนให้ชัดเจนว่าเป็นการแจ้งเตือนถาวร
       await service.setForegroundNotificationInfo(
-        title: "AppSOS กำลังทำงาน",
-        content: "ระบบติดตามตำแหน่งและการล้มกำลังทำงาน",
+        title: "AppSOS - ระบบติดตามกำลังทำงาน",
+        content: "แอปติดตามตำแหน่งและตรวจจับการล้มทำงานอยู่ในพื้นหลัง",
       );
       print('=== FOREGROUND SERVICE SET ===');
     }
@@ -87,6 +118,14 @@ void onStart(ServiceInstance service) async {
     bool processingFall = false;
     DateTime? lastFallDetection;
     List<double> recentAccelerations = [];
+    
+    // ฟังก์ชันสำหรับตรวจสอบระยะทางระหว่างตำแหน่ง - ยังคงต้องการสำหรับการคำนวณระยะทาง
+    double calculateDistance(Position pos1, Position pos2) {
+      return Geolocator.distanceBetween(
+        pos1.latitude, pos1.longitude,
+        pos2.latitude, pos2.longitude
+      );
+    }
     
     // ฟังก์ชันเพิ่มค่าความเร่งล่าสุด
     void addRecentAcceleration(double acceleration) {
@@ -332,18 +371,6 @@ void onStart(ServiceInstance service) async {
       await updateLocation(position);
     });
 
-    // อัพเดทการแจ้งเตือน
-    Timer.periodic(Duration(minutes: 1), (timer) async {
-      if (service is AndroidServiceInstance) {
-        if (await service.isForegroundService()) {
-          await service.setForegroundNotificationInfo(
-            title: "AppSOS กำลังทำงาน",
-            content: "ระบบติดตามกำลังทำงาน",
-          );
-        }
-      }
-    });
-
     // ตัวแปรเพื่อป้องกันการทำงานซ้ำซ้อนของ SOS
     bool isSosConfirmed = false;
     bool isSosCancelled = false;
@@ -405,32 +432,31 @@ void onStart(ServiceInstance service) async {
           
           print('=== SOS SENT SUCCESSFULLY ===');
         } else {
-          print("User not logged in, cannot send SOS");
-          NotificationService().showSosFailedNotification("ไม่พบข้อมูลผู้ใช้");
+          print('=== USER NOT LOGGED IN, CANNOT SEND SOS ===');
+          NotificationService().showSosFailedNotification("ไม่พบข้อมูลผู้ใช้ โปรดล็อกอินใหม่");
         }
       } catch (e) {
         print('=== ERROR SENDING SOS: $e ===');
-        NotificationService().showSosFailedNotification(e.toString());
+        NotificationService().showSosFailedNotification("เกิดข้อผิดพลาด: $e");
       }
     }
-    
-    // รับคำสั่งจาก main app
-    service.on('confirm_sos').listen((event) {
+
+    // รับคำสั่ง confirm_sos
+    service.on('confirm_sos').listen((event) async {
       print('=== RECEIVED CONFIRM_SOS COMMAND ===');
-      // ตั้งค่าสถานะเพื่อป้องกันการทำงานซ้ำ
+      if (isSosConfirmed) {
+        print('=== SOS ALREADY CONFIRMED, IGNORING DUPLICATE COMMAND ===');
+        return;
+      }
+      
       isSosConfirmed = true;
       isSosCancelled = false;
       
-      try {
-        // ยกเลิก timer สำหรับนับถอยหลัง (เพราะจะส่ง SOS ทันที)
-        NotificationService().cancelNotificationsAndTimers();
-        
-        // ส่ง SOS โดยตรงจาก background service
-        _sendSosFromBackground();
-      } catch (e) {
-        print('=== ERROR HANDLING CONFIRM_SOS: $e ===');
-        NotificationService().showSosFailedNotification(e.toString());
-      }
+      // ยกเลิกการนับถอยหลังที่อาจมีอยู่ก่อนหน้านี้ใน NotificationService
+      NotificationService().cancelNotificationsAndTimers();
+      
+      // ส่ง SOS
+      await _sendSosFromBackground();
       
       // รีเซ็ตสถานะหลัง 30 วินาที
       Timer(Duration(seconds: 30), () {
@@ -438,82 +464,27 @@ void onStart(ServiceInstance service) async {
       });
     });
     
-    service.on('send_sos').listen((event) {
-      print('=== RECEIVED SEND_SOS COMMAND ===');
-      // ส่ง SOS จาก background service (ถ้าจำเป็น)
-    });
-    
-    service.on('cancel_sos').listen((event) {
+    // รับคำสั่ง cancel_sos
+    service.on('cancel_sos').listen((event) async {
       print('=== RECEIVED CANCEL_SOS COMMAND ===');
-      
-      // ป้องกันการทำงานซ้ำซ้อน
       if (isSosCancelled) {
         print('=== SOS ALREADY CANCELLED, IGNORING DUPLICATE COMMAND ===');
         return;
       }
       
-      // ตั้งค่าสถานะ
       isSosCancelled = true;
       isSosConfirmed = false;
       
-      // ยกเลิก SOS จาก background service
-      try {
-        // ยกเลิก timer สำหรับนับถอยหลัง
-        NotificationService().cancelNotificationsAndTimers();
-        
-        // แสดง notification ยกเลิก
-        NotificationService().showCancellationNotification();
-        
-        // รีเซ็ตระบบการตรวจจับการล้ม
-        resetDetectionState();
-        
-        // อัพเดทสถานะใน Firestore (ถ้าจำเป็น)
-        print('=== SOS CANCELLED SUCCESSFULLY ===');
-      } catch (e) {
-        print('=== ERROR CANCELLING SOS: $e ===');
-      }
+      // ยกเลิกการนับถอยหลังที่อาจมีอยู่ก่อนหน้านี้ใน NotificationService
+      NotificationService().cancelNotificationsAndTimers();
       
       // รีเซ็ตสถานะหลัง 30 วินาที
       Timer(Duration(seconds: 30), () {
         isSosCancelled = false;
       });
     });
-
+    
   } catch (e) {
     print('=== ERROR IN BACKGROUND SERVICE: $e ===');
-  }
-}
-
-@pragma('vm:entry-point')
-Future<bool> onIosBackground(ServiceInstance service) async {
-  print('SON BACKGROUND FETCH EVENT: ${DateTime.now()}');
-  return true;
-}
-
-Future<bool> isServiceRunning() async {
-  final service = FlutterBackgroundService();
-  return await service.isRunning();
-}
-
-// ฟังก์ชันอัพเดทตำแหน่ง
-Future<void> updateLocation(Position position) async {
-  try {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && user.email != null) {
-      await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(user.email)
-          .update({
-        'last_location': {
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-          'accuracy': position.accuracy,
-          'timestamp': FieldValue.serverTimestamp(),
-        },
-      });
-      print('=== LOCATION UPDATED: ${position.latitude}, ${position.longitude} ===');
-    }
-  } catch (e) {
-    print('=== ERROR UPDATING LOCATION: $e ===');
   }
 }
