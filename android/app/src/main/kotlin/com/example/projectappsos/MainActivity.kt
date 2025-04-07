@@ -13,16 +13,39 @@ class MainActivity : FlutterActivity() {
         
         // สร้างช่องทางการแจ้งเตือนสำหรับ Android 8.0 (API level 26) ขึ้นไป
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
+            // สร้างช่องทางสำหรับ background service
+            val backgroundChannel = NotificationChannel(
                 "appsos_foreground", // ต้องตรงกับ notificationChannelId ใน background_service.dart
-                "AppSOS Notifications",
+                "AppSOS Background Service",
                 NotificationManager.IMPORTANCE_HIGH
             )
-            channel.description = "AppSOS service notifications"
-            channel.enableVibration(true)
+            backgroundChannel.description = "AppSOS service notifications"
+            backgroundChannel.enableVibration(true)
+            
+            // สร้างช่องทางสำหรับการตรวจจับการล้ม
+            val fallDetectionChannel = NotificationChannel(
+                "fall_detection_channel", // ต้องตรงกับ channelId ใน notification_service.dart
+                "Fall Detection Notifications",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            fallDetectionChannel.description = "Notifications for fall detection"
+            fallDetectionChannel.enableVibration(true)
+            fallDetectionChannel.setShowBadge(true)
+            
+            // สร้างช่องทางสำหรับ SOS
+            val sosChannel = NotificationChannel(
+                "sos_channel", // ต้องตรงกับ channelId ใน notification_service.dart
+                "SOS Notifications",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            sosChannel.description = "Notifications for SOS"
+            sosChannel.enableVibration(true)
+            sosChannel.setShowBadge(true)
             
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+            notificationManager.createNotificationChannel(backgroundChannel)
+            notificationManager.createNotificationChannel(fallDetectionChannel)
+            notificationManager.createNotificationChannel(sosChannel)
         }
     }
 }

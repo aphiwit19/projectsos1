@@ -12,11 +12,11 @@ import 'firebase_service.dart';
 import 'notification_service.dart'; // เพิ่ม import สำหรับ notification service
 
 // เพิ่มค่าคงที่สำหรับการตรวจจับการล้ม
-const double ACCELERATION_THRESHOLD = 22.0;
-const double GYROSCOPE_THRESHOLD = 10.0;
+const double ACCELERATION_THRESHOLD = 23.0; // เพิ่มขึ้นเล็กน้อยเพื่อลดความไว
+const double GYROSCOPE_THRESHOLD = 11.0; // เพิ่มขึ้นเล็กน้อยเพื่อลดความไว
 const double STABILITY_THRESHOLD = 2.0;
 const int STABILITY_CHECK_DELAY = 500; // ms
-const int COOLDOWN_PERIOD = 10000; // 10 วินาที
+const int COOLDOWN_PERIOD = 20000; // เพิ่มเป็น 20 วินาที
 const int RECENT_DATA_SIZE = 20; // จำนวนข้อมูลเซนเซอร์ที่เก็บไว้
 
 Future<void> initializeService() async {
@@ -128,11 +128,51 @@ void onStart(ServiceInstance service) async {
       return variance < STABILITY_THRESHOLD;
     }
     
+    // ฟังก์ชันตรวจสอบเครดิต
+    Future<bool> checkCreditAvailable() async {
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null || user.email == null) {
+          print("ไม่พบข้อมูลผู้ใช้ ไม่สามารถตรวจสอบเครดิตได้");
+          return false;
+        }
+        
+        final userDoc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.email)
+            .get();
+        
+        if (!userDoc.exists) {
+          print("ไม่พบข้อมูลผู้ใช้ในฐานข้อมูล");
+          return false;
+        }
+        
+        final credit = userDoc.data()?['credit'] ?? 0;
+        print("เครดิตคงเหลือ: $credit");
+        
+        return credit > 0;
+      } catch (e) {
+        print("เกิดข้อผิดพลาดในการตรวจสอบเครดิต: $e");
+        return false;
+      }
+    }
+    
     // ฟังก์ชันแสดงการแจ้งเตือนและเปิดหน้า SOS
     void handleFallDetection() async {
       print("Fall detected in background service!");
       
       try {
+        /* คอมเมนต์ออกเพื่อทดสอบการแจ้งเตือน
+        // ตรวจสอบเครดิตก่อนแสดงการแจ้งเตือน
+        bool hasCreditAvailable = await checkCreditAvailable();
+        if (!hasCreditAvailable) {
+          print("ไม่สามารถส่ง SOS ได้เนื่องจากไม่มีเครดิตเหลือ");
+          // แสดงการแจ้งเตือนว่าไม่มีเครดิตเหลือ
+          await NotificationService().showNoCreditNotification();
+          return;
+        }
+        */
+        
         // บันทึกการตรวจพบการล้มลง Firestore
         final user = FirebaseAuth.instance.currentUser;
         if (user != null && user.email != null) {
@@ -156,7 +196,7 @@ void onStart(ServiceInstance service) async {
           playSound: true,
         );
         
-        // ส่งข้อมูลไปยังแอปหลัก (ถ้าแอปเปิดอยู่)
+        // ส่งข้อมูลไปยังแอปหลัก (ถ้าจำเป็น)
         service.invoke("fall_detected", {
           "timestamp": DateTime.now().toIso8601String(),
         });
@@ -294,6 +334,10 @@ void onStart(ServiceInstance service) async {
       }
     });
 
+    // ตัวแปรเพื่อป้องกันการทำงานซ้ำซ้อนของ SOS
+    bool isSosConfirmed = false;
+    bool isSosCancelled = false;
+
     service.on('stopService').listen((event) {
       accelerometerSubscription?.cancel();
       gyroscopeSubscription?.cancel();
@@ -301,7 +345,89 @@ void onStart(ServiceInstance service) async {
       service.stopSelf();
     });
 
-    // รับคำสั่งจาก NotificationService
+    // รับคำสั่งจาก main app
+    service.on('confirm_sos').listen((event) {
+      print('=== RECEIVED CONFIRM_SOS COMMAND ===');
+      // ตั้งค่าสถานะเพื่อป้องกันการทำงานซ้ำ
+      isSosConfirmed = true;
+      isSosCancelled = false;
+      
+      try {
+        // ยกเลิก timer สำหรับนับถอยหลัง (เพราะจะส่ง SOS ทันที)
+        NotificationService().cancelNotificationsAndTimers();
+        
+        // ส่ง SOS โดยตรงจาก background service
+        _sendSosFromBackground();
+      } catch (e) {
+        print('=== ERROR HANDLING CONFIRM_SOS: $e ===');
+        NotificationService().showSosFailedNotification(e.toString());
+      }
+      
+      // รีเซ็ตสถานะหลัง 30 วินาที
+      Timer(Duration(seconds: 30), () {
+        isSosConfirmed = false;
+      });
+    });
+    
+    // ฟังก์ชันส่ง SOS จาก background service
+    void _sendSosFromBackground() async {
+      try {
+        // แสดงการแจ้งเตือนว่ากำลังส่ง SOS
+        NotificationService().showSendingSosNotification();
+        
+        // บันทึกข้อมูลการส่ง SOS ใน Firestore
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null && user.email != null) {
+          // ดึงตำแหน่งปัจจุบัน
+          Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high
+          );
+          
+          // บันทึกข้อมูลการส่ง SOS
+          final sosRef = await FirebaseFirestore.instance
+              .collection('Users')
+              .doc(user.email)
+              .collection('sos_events')
+              .add({
+                'timestamp': FieldValue.serverTimestamp(),
+                'status': 'sending',
+                'source': 'background_service',
+                'location': {
+                  'latitude': position.latitude,
+                  'longitude': position.longitude,
+                  'accuracy': position.accuracy,
+                },
+              });
+          
+          print("SOS record created with ID: ${sosRef.id}");
+          
+          // อัพเดทสถานะเป็นส่งสำเร็จ
+          await sosRef.update({'status': 'sent'});
+          
+          // ลดเครดิต (ถ้ามี)
+          /* คอมเมนต์ออกเพื่อทดสอบ
+          await FirebaseFirestore.instance
+              .collection('Users')
+              .doc(user.email)
+              .update({
+                'credit': FieldValue.increment(-1),
+              });
+          */
+          
+          // แสดงการแจ้งเตือนว่าส่งสำเร็จ
+          NotificationService().showSosSuccessNotification();
+          
+          print('=== SOS SENT SUCCESSFULLY ===');
+        } else {
+          print("User not logged in, cannot send SOS");
+          NotificationService().showSosFailedNotification("ไม่พบข้อมูลผู้ใช้");
+        }
+      } catch (e) {
+        print('=== ERROR SENDING SOS: $e ===');
+        NotificationService().showSosFailedNotification(e.toString());
+      }
+    }
+    
     service.on('send_sos').listen((event) {
       print('=== RECEIVED SEND_SOS COMMAND ===');
       // ส่ง SOS จาก background service (ถ้าจำเป็น)
@@ -309,7 +435,38 @@ void onStart(ServiceInstance service) async {
     
     service.on('cancel_sos').listen((event) {
       print('=== RECEIVED CANCEL_SOS COMMAND ===');
-      // ยกเลิก SOS จาก background service (ถ้าจำเป็น)
+      
+      // ป้องกันการทำงานซ้ำซ้อน
+      if (isSosCancelled) {
+        print('=== SOS ALREADY CANCELLED, IGNORING DUPLICATE COMMAND ===');
+        return;
+      }
+      
+      // ตั้งค่าสถานะ
+      isSosCancelled = true;
+      isSosConfirmed = false;
+      
+      // ยกเลิก SOS จาก background service
+      try {
+        // ยกเลิก timer สำหรับนับถอยหลัง
+        NotificationService().cancelNotificationsAndTimers();
+        
+        // แสดง notification ยกเลิก
+        NotificationService().showCancellationNotification();
+        
+        // รีเซ็ตระบบการตรวจจับการล้ม
+        resetDetectionState();
+        
+        // อัพเดทสถานะใน Firestore (ถ้าจำเป็น)
+        print('=== SOS CANCELLED SUCCESSFULLY ===');
+      } catch (e) {
+        print('=== ERROR CANCELLING SOS: $e ===');
+      }
+      
+      // รีเซ็ตสถานะหลัง 30 วินาที
+      Timer(Duration(seconds: 30), () {
+        isSosCancelled = false;
+      });
     });
 
   } catch (e) {

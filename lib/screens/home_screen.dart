@@ -1,11 +1,13 @@
 // lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
+import 'dart:async'; // เพิ่ม import สำหรับ StreamSubscription
 import '../services/fall_detection_service.dart';
 import '../features/sos/sos_confirmation_screen.dart';
 import '../features/menu/menu_screen.dart';
 import '../features/emergency_contacts/emergency_contacts_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
+import '../main.dart'; // import main.dart เพื่อใช้ตัวแปรและฟังก์ชันจากไฟล์หลัก
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -17,6 +19,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late FallDetectionService _fallDetectionService;
   int _currentIndex = 0;
+  StreamSubscription? _fallDetectionStreamSubscription;
 
   @override
   void initState() {
@@ -25,21 +28,34 @@ class _HomeScreenState extends State<HomeScreen> {
       onFallDetected: _handleFallDetected,
     );
     _fallDetectionService.startMonitoring();
+
+    // รับเหตุการณ์การตรวจพบการล้มจาก Background Service
+    _fallDetectionStreamSubscription = fallDetectionStreamController.stream.listen((event) {
+      print("Fall detection event received from background service");
+      // ไม่ต้องดำเนินการเพิ่มเติม เพราะ background service จะจัดการการแจ้งเตือนเอง
+    });
   }
 
   void _handleFallDetected() {
-    print("Fall detected! Triggering SOS...");
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => SosConfirmationScreen()),
-    ).then((value) {
-      print("Returned to HomeScreen from SosConfirmationScreen");
-    });
+    print("Fall detected in foreground! Checking global cooldown...");
+    // ตรวจสอบว่าอยู่ในช่วง cooldown ระดับแอพหรือไม่
+    if (checkGlobalFallDetectionCooldown()) {
+      print("Global cooldown passed, triggering SOS confirmation screen...");
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const SosConfirmationScreen(detectionSource: 'automatic')),
+      ).then((value) {
+        print("Returned to HomeScreen from SosConfirmationScreen");
+      });
+    } else {
+      print("Fall detected but global cooldown is active, ignoring...");
+    }
   }
 
   @override
   void dispose() {
     _fallDetectionService.stopMonitoring();
+    _fallDetectionStreamSubscription?.cancel();
     super.dispose();
   }
 

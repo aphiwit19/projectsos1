@@ -6,9 +6,9 @@ class FallDetectionService {
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
   StreamSubscription<GyroscopeEvent>? _gyroscopeSubscription;
 
-  // ปรับปรุง Thresholds ให้มีความแม่นยำมากขึ้น
-  static const double accelerationThreshold = 22.0; // ลดจาก 25.0 เพื่อเพิ่มความไว
-  static const double gyroscopeThreshold = 10.0; // ลดจาก 12.0 เพื่อเพิ่มความไว
+  // ปรับปรุง Thresholds ใหม่
+  static const double accelerationThreshold = 23.0; // เพิ่มขึ้นเล็กน้อยเพื่อลดความไว
+  static const double gyroscopeThreshold = 11.0; // เพิ่มขึ้นเล็กน้อยเพื่อลดความไว
   static const double stabilityThreshold = 2.0; // threshold สำหรับความนิ่งหลังจากการล้ม
   
   // เพิ่มตัวแปรสำหรับการตรวจสอบรูปแบบการล้ม
@@ -24,7 +24,7 @@ class FallDetectionService {
   static const int stabilityCheckDelay = 500;
   
   // ระยะเวลาหลังจากตรวจพบการล้มแล้วจะไม่ตรวจอีก (ms)
-  static const int cooldownPeriod = 10000; // 10 วินาที
+  static const int cooldownPeriod = 20000; // เพิ่มเป็น 20 วินาที
   DateTime? _lastFallDetection;
 
   // Callback เมื่อตรวจจับการล้ม
