@@ -93,4 +93,32 @@ class LocationService {
       return null;
     }
   }
+
+  // เพิ่มเมธอด getCurrentPosition เพื่อดึงตำแหน่งปัจจุบัน
+  Future<Position> getCurrentPosition() async {
+    // ตรวจสอบสิทธิ์การเข้าถึงตำแหน่ง
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw Exception('Location permission denied');
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception('Location permissions are permanently denied');
+    }
+    
+    // ตรวจสอบว่า location service เปิดอยู่หรือไม่
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception('Location services are disabled');
+    }
+    
+    // ดึงตำแหน่งปัจจุบัน
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 10),
+    );
+  }
 }

@@ -24,6 +24,8 @@ dependencies:
   flutter_background_service_android: ^6.2.2
   http: ^1.3.0
   cached_network_image: ^3.4.1
+  flutter_local_notifications: ^17.0.0
+  just_audio: ^0.9.36
 
 dev_dependencies:
   flutter_test:
@@ -35,6 +37,7 @@ flutter:
   
   assets:
     - assets/images/
+    - assets/sounds/
 
 # เพิ่มการตั้งค่าเพื่อลดความเข้มงวดของ lints
 analyzer:

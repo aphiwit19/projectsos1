@@ -227,4 +227,85 @@ class AuthService {
       throw Exception('เกิดข้อผิดพลาด: $e');
     }
   }
+
+  // เพิ่มเมธอด addSosLog เพื่อบันทึกข้อมูลการเรียกใช้ SOS
+  Future<void> addSosLog(
+    String action,
+    String description,
+    Map<String, dynamic> additionalData,
+  ) async {
+    try {
+      // ดึง userId ปัจจุบัน
+      String? userId = await getUserId();
+      if (userId == null) {
+        print('ไม่สามารถบันทึก SOS log: ไม่พบ userId');
+        return;
+      }
+      
+      // ดึง email จาก userId
+      String? email = await _getEmailFromUserId(userId);
+      if (email == null) {
+        print('ไม่สามารถบันทึก SOS log: ไม่พบ email');
+        return;
+      }
+      
+      // สร้างข้อมูล log
+      final logData = {
+        'timestamp': FieldValue.serverTimestamp(),
+        'action': action,
+        'description': description,
+        'userId': userId,
+        ...additionalData,
+      };
+      
+      // บันทึกลงฐานข้อมูล
+      await _firestore
+          .collection('Users')
+          .doc(email)
+          .collection('sos_logs')
+          .add(logData);
+          
+      print('บันทึก SOS log สำเร็จ: $action');
+    } catch (e) {
+      print('เกิดข้อผิดพลาดในการบันทึก SOS log: $e');
+    }
+  }
+
+  Future<String?> _getEmailFromUserId(String userId) async {
+    try {
+      // วิธีที่ 1: ค้นหาจาก userId ในฟิลด์ uid
+      QuerySnapshot queryByUid = await _firestore
+          .collection('Users')
+          .where('uid', isEqualTo: userId)
+          .limit(1)
+          .get();
+          
+      if (queryByUid.docs.isNotEmpty) {
+        return queryByUid.docs.first.id; // return email ที่เป็น document ID
+      }
+      
+      // วิธีที่ 2: ค้นหาจาก userId ในฟิลด์ userId
+      QuerySnapshot queryByUserId = await _firestore
+          .collection('Users')
+          .where('userId', isEqualTo: userId)
+          .limit(1)
+          .get();
+          
+      if (queryByUserId.docs.isNotEmpty) {
+        return queryByUserId.docs.first.id; // return email ที่เป็น document ID
+      }
+      
+      // วิธีที่ 3: ลองตรวจสอบว่า userId เป็น email หรือไม่
+      DocumentSnapshot doc = await _firestore.collection('Users').doc(userId).get();
+      if (doc.exists) {
+        return userId; // ถ้า document นี้มีอยู่จริง แสดงว่า userId คือ email
+      }
+      
+      print('ไม่พบอีเมลสำหรับ userId: $userId');
+      return null;
+    } catch (e) {
+      print('เกิดข้อผิดพลาดในการค้นหาอีเมล: $e');
+      return null;
+    }
+  }
 }

@@ -9,7 +9,12 @@ import '../../services/location_service.dart';
 import '../../services/sos_service.dart';
 
 class SosConfirmationScreen extends StatefulWidget {
-  const SosConfirmationScreen({Key? key}) : super(key: key);
+  final String detectionSource; // เพิ่มพารามิเตอร์เพื่อระบุที่มาของการเปิดหน้าจอ
+
+  const SosConfirmationScreen({
+    Key? key, 
+    this.detectionSource = 'manual',  // ค่าเริ่มต้นคือการกดด้วยตัวเอง
+  }) : super(key: key);
 
   @override
   _SosConfirmationScreenState createState() => _SosConfirmationScreenState();
@@ -25,6 +30,29 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
   void initState() {
     super.initState();
     _startCountdown();
+    
+    // บันทึกข้อมูลการตรวจพบการล้มลง Firestore ตามแหล่งที่มา
+    _logSOSRequest();
+  }
+  
+  // บันทึกข้อมูลการเรียกใช้ SOS
+  Future<void> _logSOSRequest() async {
+    try {
+      final authService = AuthService();
+      String? userId = await authService.getUserId();
+      if (userId != null) {
+        await authService.addSosLog(
+          'sos_confirmation_opened',
+          'ผู้ใช้เปิดหน้าจอยืนยัน SOS',
+          {
+            'detection_source': widget.detectionSource,
+            'timestamp': DateTime.now().toString(),
+          },
+        );
+      }
+    } catch (e) {
+      print('ไม่สามารถบันทึกข้อมูล SOS log: $e');
+    }
   }
 
   void _startCountdown() {
@@ -83,7 +111,11 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
         _statusMessage = 'กำลังส่ง SMS ไปยังผู้ติดต่อฉุกเฉิน...';
       });
       
-      final result = await SosService().sendSos(userId);
+      // เพิ่มข้อมูลแหล่งที่มาของ SOS
+      final result = await SosService().sendSos(
+        userId, 
+        detectionSource: widget.detectionSource
+      );
 
       // แสดงข้อความแจ้งเตือนตามผลลัพธ์ที่ได้รับ
       if (mounted) {
@@ -197,9 +229,13 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        "SOS ฉุกเฉิน",
-                        style: TextStyle(
+                      Text(
+                        widget.detectionSource == 'manual' 
+                        ? "SOS ฉุกเฉิน" 
+                        : widget.detectionSource == 'notification' 
+                          ? "ยืนยันการส่ง SOS" 
+                          : "ตรวจพบการล้ม",
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -225,9 +261,13 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        "ระบบจะส่ง SMS แจ้งเหตุฉุกเฉิน เมื่อสิ้นสุดการนับถอยหลัง",
-                        style: TextStyle(
+                      Text(
+                        widget.detectionSource == 'notification'
+                        ? "ระบบกำลังจะส่ง SMS แจ้งเหตุฉุกเฉินตามที่คุณยืนยัน"
+                        : widget.detectionSource == 'automatic'
+                          ? "ระบบตรวจพบการล้ม และจะส่ง SMS แจ้งเหตุฉุกเฉิน"
+                          : "ระบบจะส่ง SMS แจ้งเหตุฉุกเฉิน เมื่อสิ้นสุดการนับถอยหลัง",
+                        style: const TextStyle(
                           fontSize: 16,
                           color: Colors.white,
                         ),

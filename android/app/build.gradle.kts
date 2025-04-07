@@ -15,9 +15,14 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        
+        // เพิ่ม core library desugaring ตามที่ flutter_local_notifications ต้องการ
+        multiDexEnabled = true
     }
 
     compileOptions {
+        // เพิ่ม desugaring options
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -57,4 +62,10 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.android.gms:play-services-safetynet:18.1.0") // เพิ่ม SafetyNet
+    
+    // เพิ่ม dependency สำหรับ desugaring
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    
+    // เพิ่ม multidex support
+    implementation("androidx.multidex:multidex:2.0.1")
 }

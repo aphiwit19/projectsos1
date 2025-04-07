@@ -136,9 +136,15 @@ class SmsService {
     }
   }
 
-  // เมธอดสำหรับส่ง SMS ไปยังหมายเลขเดียว (แก้ไขให้ส่งคืน SmsResult)
-  Future<SmsResult> sendSms(String phoneNumber, String message) async {
-    return sendBulkSms([phoneNumber], message);
+  // เมธอดสำหรับส่ง SMS ไปยังหมายเลขเดียว (ส่งคืนค่าเป็น bool)
+  Future<bool> sendSms(String phoneNumber, String message) async {
+    try {
+      SmsResult result = await sendBulkSms([phoneNumber], message);
+      return result.allSuccess || result.statuses[phoneNumber] == SmsStatus.success;
+    } catch (e) {
+      debugPrint('Error in simple sendSms: $e');
+      return false;
+    }
   }
 
   // เมธอดสำหรับส่ง SMS แบบกลุ่ม (API V1) (แก้ไขให้ส่งคืน SmsResult)

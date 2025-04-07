@@ -12,6 +12,9 @@ import 'profile_service.dart';
 import 'sms_service.dart';
 import '../models/user_profile_model.dart';
 import 'firebase_service.dart';
+import 'package:flutter/foundation.dart';
+import '../services/sms_service.dart';
+import '../services/location_service.dart';
 
 class SosService {
   final FirebaseFirestore _firestore = FirebaseService.firestore;
@@ -43,221 +46,284 @@ class SosService {
     }
   }
 
-  Future<Map<String, dynamic>> sendSos(String userId) async {
+  Future<Map<String, dynamic>> sendSos(
+    String userId, {
+    String detectionSource = 'manual',
+  }) async {
     try {
-      // 1. ตรวจสอบว่ามีการล็อกอินหรือไม่
-      if (userId.isEmpty) {
-        debugPrint('User not logged in');
+      print('SOS Service: เริ่มต้นกระบวนการส่ง SOS สำหรับผู้ใช้ $userId');
+      
+      // ดึงข้อมูลผู้ใช้
+      final user = await _getUserData(userId);
+      if (user == null) {
         return {
           'success': false,
-          'message': 'กรุณาล็อกอินก่อนใช้งาน',
+          'message': 'ไม่พบข้อมูลผู้ใช้',
+          'userId': userId,
         };
       }
 
-      // 2. ค้นหา email ของผู้ใช้
-      String? senderEmail = await _getEmailFromUserId(userId);
-      if (senderEmail == null) {
-        debugPrint('Email not found for userId: $userId');
-        return {
-          'success': false,
-          'message': 'ไม่พบข้อมูลผู้ใช้ กรุณาล็อกอินใหม่',
-        };
-      }
-      debugPrint('Sender email: $senderEmail');
+      // ดึงตำแหน่งปัจจุบัน
+      print('SOS Service: กำลังดึงข้อมูลตำแหน่ง...');
+      final position = await LocationService().getCurrentPosition();
+      print('SOS Service: ได้ตำแหน่งแล้ว - ${position.latitude}, ${position.longitude}');
 
-      // 3. ดึงข้อมูลผู้ใช้
-      DocumentSnapshot userDoc = await _firestore.collection('Users').doc(senderEmail).get();
-      if (!userDoc.exists) {
-        debugPrint('User profile not found for email: $senderEmail');
-        return {
-          'success': false,
-          'message': 'ไม่พบข้อมูลโปรไฟล์ผู้ใช้',
-        };
-      }
-
-      UserProfile userProfile = UserProfile.fromJson(userDoc.data() as Map<String, dynamic>);
-      debugPrint('User profile loaded: ${userProfile.fullName}');
-
-      // 4. ดึงตำแหน่งปัจจุบัน
-      Position? position;
-      String mapLink = "ไม่สามารถระบุตำแหน่งได้";
-      try {
-        LocationPermission permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
-        }
-
-        if (permission == LocationPermission.whileInUse ||
-            permission == LocationPermission.always) {
-          position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.best,
-            timeLimit: const Duration(seconds: 10),
-          );
-          debugPrint('Position: ${position.latitude}, ${position.longitude}');
-          mapLink = "https://maps.google.com/?q=${position.latitude},${position.longitude}";
-        } else {
-          debugPrint('Location permission denied');
-        }
-      } catch (e) {
-        debugPrint('Error getting position: $e');
-      }
-
-      // 5. ดึงรายชื่อผู้ติดต่อฉุกเฉิน
-      QuerySnapshot contactsSnapshot = await _firestore
-          .collection('Users')
-          .doc(senderEmail)
-          .collection('EmergencyContacts')
-          .get();
-
-      List<EmergencyContact> contacts = contactsSnapshot.docs
-          .map((doc) => EmergencyContact.fromJson(doc.data() as Map<String, dynamic>))
-          .toList();
-
+      // สร้างลิงก์ตำแหน่ง
+      final positionLink = 'https://maps.google.com/?q=${position.latitude},${position.longitude}';
+      
+      // ดึงรายชื่อผู้ติดต่อฉุกเฉิน
+      print('SOS Service: กำลังดึงรายชื่อผู้ติดต่อฉุกเฉิน...');
+      final contacts = await _getEmergencyContacts(userId);
+      
       if (contacts.isEmpty) {
-        debugPrint('No emergency contacts found for email: $senderEmail');
         return {
           'success': false,
-          'message': 'ไม่พบผู้ติดต่อฉุกเฉิน กรุณาเพิ่มผู้ติดต่อก่อนส่ง SOS',
+          'message': 'ไม่พบรายชื่อผู้ติดต่อฉุกเฉิน กรุณาเพิ่มผู้ติดต่อฉุกเฉินก่อน',
         };
       }
-      debugPrint('Found ${contacts.length} emergency contacts');
-
-      // 6. เตรียมข้อมูลสำหรับส่ง SMS
-      final timestamp = Timestamp.now();
-      final formattedTimestamp = DateFormat('yyyyMMddTHHmmss').format(timestamp.toDate());
       
-      final recipients = <String>[];
-      final phoneNumbers = <String>[];
-      for (var contact in contacts) {
-        recipients.add(contact.phone);
-        phoneNumbers.add(contact.phone);
-        debugPrint('Processing contact: ${contact.phone}');
-      }
+      print('SOS Service: พบผู้ติดต่อฉุกเฉิน ${contacts.length} คน');
 
-      // 7. ส่ง SMS
-      bool anySmsSent = false;
-      bool isCreditEmpty = false;
-      Map<String, dynamic> smsStatuses = {};
-      String smsErrorMessage = '';
+      // สร้างข้อความ SOS
+      final userName = user['name'] ?? 'ผู้ใช้';
+      final currentTime = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
       
-      try {
-        // เปลี่ยนจาก bool เป็น SmsResult ที่มีข้อมูลละเอียดมากขึ้น
-        final smsResult = await _smsService.sendSosMessage(userProfile, mapLink, phoneNumbers);
-        debugPrint('SMS send result: $smsResult');
-        
-        // ตรวจสอบว่ามีการส่ง SMS สำเร็จอย่างน้อย 1 เบอร์หรือไม่
-        anySmsSent = smsResult.statuses.values.any((status) => status == SmsStatus.success);
-        
-        // ตรวจสอบว่าเครดิตหมดหรือไม่
-        isCreditEmpty = smsResult.statuses.values.any((status) => status == SmsStatus.noCredit);
-        
-        // บันทึกสถานะการส่งของแต่ละเบอร์เพื่อเก็บในฐานข้อมูล
-        smsResult.statuses.forEach((phone, status) {
-          smsStatuses[phone] = status.toString().split('.').last; // แปลง enum เป็น string (success, failed, pending, noCredit)
-        });
-        
-        // บันทึกข้อความแสดงความผิดพลาด
-        smsErrorMessage = smsResult.errorMessage;
-        
-        debugPrint('Any SMS sent successfully: $anySmsSent');
-        debugPrint('Is credit empty: $isCreditEmpty');
-        
-        // ถ้าไม่มีการส่ง SMS สำเร็จเลย
-        if (!anySmsSent) {
-          debugPrint('No SMS was sent successfully');
+      final messagePrefix = detectionSource == 'automatic' 
+          ? '[ระบบตรวจพบการล้ม]' 
+          : detectionSource == 'notification'
+              ? '[ยืนยันจากการแจ้งเตือน]'
+              : '[แจ้งเหตุฉุกเฉิน]';
+      
+      final message = '''
+$messagePrefix ฉุกเฉิน! $userName ต้องการความช่วยเหลือ
+เวลา: $currentTime
+ตำแหน่ง: $positionLink
+''';
+
+      // ส่ง SMS ไปยังผู้ติดต่อทั้งหมด
+      print('SOS Service: กำลังส่ง SMS...');
+      
+      List<String> sentNumbers = [];
+      List<String> failedNumbers = [];
+      
+      for (final contact in contacts) {
+        final phoneNumber = contact['phone'] as String?;
+        if (phoneNumber != null && phoneNumber.isNotEmpty) {
+          final success = await SmsService().sendSms(
+            phoneNumber,
+            message,
+          );
           
-          // ตรวจสอบว่ามีการส่งที่อยู่ระหว่างดำเนินการ (pending) หรือไม่
-          bool hasPending = smsResult.statuses.values.any((status) => status == SmsStatus.pending);
-          if (hasPending) {
-            debugPrint('Some SMS are still pending');
+          if (success) {
+            sentNumbers.add(phoneNumber);
+          } else {
+            failedNumbers.add(phoneNumber);
           }
         }
-      } catch (smsError) {
-        debugPrint('Failed to send SMS: $smsError');
-        smsErrorMessage = smsError.toString();
-        // ไม่ throw Exception ที่นี่เพื่อให้โค้ดทำงานต่อไปได้
       }
+      
+      print('SOS Service: ส่ง SMS สำเร็จ ${sentNumbers.length} เบอร์, ล้มเหลว ${failedNumbers.length} เบอร์');
 
-      // 8. บันทึกประวัติการส่ง SOS - บันทึกเฉพาะเมื่อส่ง SMS สำเร็จอย่างน้อย 1 เบอร์
-      if (anySmsSent) {
-        String sanitizedFullName = _sanitizeName(userProfile.fullName ?? 'unknown');
-        String customSosId = 'sos_${sanitizedFullName}_$formattedTimestamp';
-        int sosSequence = 0;
-        final sosLogsRef = _firestore.collection('Users').doc(senderEmail).collection('sos_logs');
-        
-        // ตรวจสอบว่ามีไอดีซ้ำหรือไม่
-        while (true) {
-          final existingSosDoc = await sosLogsRef.doc(customSosId).get();
-          if (!existingSosDoc.exists) break;
-          sosSequence++;
-          customSosId = 'sos_${sanitizedFullName}_${formattedTimestamp}_$sosSequence';
-        }
+      // บันทึกประวัติการส่ง SOS
+      print('SOS Service: กำลังบันทึกประวัติการส่ง SOS...');
+      
+      final sosId = await _saveSosHistory(
+        userId,
+        position,
+        sentNumbers,
+        failedNumbers,
+        detectionSource,
+      );
+      
+      print('SOS Service: บันทึกประวัติ SOS เรียบร้อย ID: $sosId');
 
-        // สร้างข้อความ SOS ด้วย SMS Service
-        final sosMessage = _smsService.createSosMessage(userProfile, mapLink);
-        
-        // บันทึกข้อมูล SOS
-        debugPrint('Saving SOS log for $senderEmail');
-        await sosLogsRef.doc(customSosId).set({
-          'timestamp': timestamp,
-          'location': position != null
-              ? {
-            'latitude': position.latitude,
-            'longitude': position.longitude,
-          }
-              : {
-            'latitude': null,
-            'longitude': null,
-          },
-          'mapLink': mapLink,
-          'message': sosMessage,
-          'userInfo': {
-            'fullName': userProfile.fullName ?? 'ไม่ระบุ',
-            'phone': userProfile.phone ?? 'ไม่ระบุ',
-            'bloodType': userProfile.bloodType ?? 'ไม่ระบุ',
-            'medicalConditions': userProfile.medicalConditions ?? 'ไม่ระบุ',
-            'allergies': userProfile.allergies ?? 'ไม่ระบุ',
-          },
-          'recipients': recipients,
-          'smsStatuses': smsStatuses, // เก็บสถานะการส่งของแต่ละเบอร์
-          'anySmsSent': anySmsSent, // แทนที่ smsSent เดิม
-          'smsTimestamp': timestamp, // เวลาที่ส่ง SMS
-        });
-        debugPrint('SOS log saved for $senderEmail');
-        
-        // ส่งคืนข้อมูลผลการบันทึก
+      // คืนค่าผลลัพธ์
+      if (sentNumbers.isNotEmpty) {
         return {
           'success': true,
-          'message': 'ส่ง SOS เรียบร้อยแล้ว',
-          'logId': customSosId,
+          'message': 'ส่ง SOS สำเร็จ ${sentNumbers.length} เบอร์',
+          'sentCount': sentNumbers.length,
+          'failedCount': failedNumbers.length,
+          'sosId': sosId,
         };
       } else {
-        // ไม่บันทึกประวัติเมื่อส่ง SMS ไม่สำเร็จ
-        debugPrint('Not saving SOS log because no SMS was sent successfully');
-        
-        // ส่งคืนข้อมูลที่ระบุว่าไม่บันทึกประวัติ พร้อมสาเหตุที่ชัดเจน
-        String errorMessage = 'ไม่สามารถส่ง SMS ได้';
-        
-        // ระบุสาเหตุที่ชัดเจนมากขึ้น
-        if (isCreditEmpty) {
-          errorMessage = 'การส่ง SMS ไม่สำเร็จ';
-        } else if (!smsErrorMessage.isEmpty) {
-          errorMessage = 'ไม่สามารถส่ง SMS ได้: $smsErrorMessage';
-        }
-        
         return {
           'success': false,
-          'message': errorMessage,
-          'logId': null,
-          'isCreditEmpty': isCreditEmpty
+          'message': 'ไม่สามารถส่ง SMS ไปยังผู้ติดต่อฉุกเฉินได้',
+          'sentCount': 0,
+          'failedCount': failedNumbers.length,
         };
       }
-    } on Exception catch (e) {
-      debugPrint('Error in sendSos: $e');
+    } catch (e) {
+      print('SOS Service ERROR: $e');
       return {
         'success': false,
-        'message': 'เกิดข้อผิดพลาดในการส่ง SOS: $e',
+        'message': 'เกิดข้อผิดพลาดในการส่ง SOS: ${e.toString()}',
       };
+    }
+  }
+
+  Future<Map<String, dynamic>?> _getUserData(String userId) async {
+    try {
+      // ค้นหาทั้งจาก userId และ uid
+      QuerySnapshot usersQueryByUserId = await _firestore
+          .collection('Users')
+          .where('userId', isEqualTo: userId)
+          .limit(1)
+          .get();
+      
+      if (usersQueryByUserId.docs.isNotEmpty) {
+        return usersQueryByUserId.docs.first.data() as Map<String, dynamic>;
+      }
+
+      // ถ้าไม่พบจาก userId ให้ลองหาจาก uid
+      QuerySnapshot usersQueryByUid = await _firestore
+          .collection('Users')
+          .where('uid', isEqualTo: userId)
+          .limit(1)
+          .get();
+      
+      if (usersQueryByUid.docs.isNotEmpty) {
+        return usersQueryByUid.docs.first.data() as Map<String, dynamic>;
+      }
+
+      // ลองดึงจาก email โดยตรง (ถ้า userId เป็น email)
+      DocumentSnapshot userDoc = await _firestore
+          .collection('Users')
+          .doc(userId)
+          .get();
+      
+      if (userDoc.exists) {
+        return userDoc.data() as Map<String, dynamic>;
+      }
+      
+      print('ไม่พบข้อมูลผู้ใช้สำหรับ userId: $userId');
+      return null;
+    } catch (e) {
+      print('Error getting user data: $e');
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _getEmergencyContacts(String userId) async {
+    try {
+      // ลองหาข้อมูลผู้ใช้ด้วยวิธีต่างๆ
+      
+      // 1. ค้นหาโดยใช้ userId
+      QuerySnapshot usersQueryByUserId = await _firestore
+          .collection('Users')
+          .where('userId', isEqualTo: userId)
+          .limit(1)
+          .get();
+      
+      if (usersQueryByUserId.docs.isNotEmpty) {
+        final userDoc = usersQueryByUserId.docs.first;
+        
+        // ดึงรายชื่อผู้ติดต่อฉุกเฉินจาก Firestore
+        final contactsSnapshot = await _firestore
+            .collection('Users')
+            .doc(userDoc.id)
+            .collection('EmergencyContacts')
+            .get();
+        
+        return contactsSnapshot.docs
+            .map((doc) => doc.data() as Map<String, dynamic>)
+            .toList();
+      }
+      
+      // 2. ค้นหาโดยใช้ uid
+      QuerySnapshot usersQueryByUid = await _firestore
+          .collection('Users')
+          .where('uid', isEqualTo: userId)
+          .limit(1)
+          .get();
+      
+      if (usersQueryByUid.docs.isNotEmpty) {
+        final userDoc = usersQueryByUid.docs.first;
+        
+        // ดึงรายชื่อผู้ติดต่อฉุกเฉินจาก Firestore
+        final contactsSnapshot = await _firestore
+            .collection('Users')
+            .doc(userDoc.id)
+            .collection('EmergencyContacts')
+            .get();
+        
+        return contactsSnapshot.docs
+            .map((doc) => doc.data() as Map<String, dynamic>)
+            .toList();
+      }
+      
+      // 3. ค้นหาโดยตรงจาก document ID (ถ้า userId เป็น email)
+      try {
+        final contactsSnapshot = await _firestore
+            .collection('Users')
+            .doc(userId)
+            .collection('EmergencyContacts')
+            .get();
+        
+        return contactsSnapshot.docs
+            .map((doc) => doc.data() as Map<String, dynamic>)
+            .toList();
+      } catch (e) {
+        print('Error getting emergency contacts directly: $e');
+      }
+      
+      print('ไม่พบข้อมูลผู้ติดต่อฉุกเฉินสำหรับ userId: $userId');
+      return [];
+    } catch (e) {
+      print('Error getting emergency contacts: $e');
+      return [];
+    }
+  }
+
+  Future<String> _saveSosHistory(
+    String userId,
+    Position position,
+    List<String> sentNumbers,
+    List<String> failedNumbers,
+    String detectionSource,
+  ) async {
+    try {
+      // สร้างข้อมูล SOS
+      final sosData = {
+        'userId': userId,
+        'timestamp': FieldValue.serverTimestamp(),
+        'location': {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'accuracy': position.accuracy,
+        },
+        'sentTo': sentNumbers,
+        'failedTo': failedNumbers,
+        'status': sentNumbers.isNotEmpty ? 'success' : 'failed',
+        'detectionSource': detectionSource,
+      };
+      
+      // บันทึกลงฐานข้อมูล
+      final docRef = await _firestore.collection('sos_history').add(sosData);
+
+      try {
+        // ค้นหา document ID ของผู้ใช้ (email)
+        String? email = await _getEmailFromUserId(userId);
+        
+        if (email != null) {
+          // บันทึกลง user document ด้วย email
+          await _firestore.collection('Users').doc(email).collection('sos_history').doc(docRef.id).set(sosData);
+          print('บันทึกประวัติ SOS ใน Users/$email/sos_history เรียบร้อย');
+        } else {
+          // พยายามบันทึกโดยตรงด้วย userId
+          await _firestore.collection('Users').doc(userId).collection('sos_history').doc(docRef.id).set(sosData);
+          print('บันทึกประวัติ SOS ใน Users/$userId/sos_history เรียบร้อย');
+        }
+      } catch (e) {
+        print('ไม่สามารถบันทึกประวัติ SOS ใน Users collection: $e');
+        // ไม่ throw exception เพื่อให้ฟังก์ชันยังทำงานต่อได้ แม้จะไม่สามารถบันทึกลง user document
+      }
+      
+      return docRef.id;
+    } catch (e) {
+      print('Error saving SOS history: $e');
+      rethrow; // ส่งต่อ error
     }
   }
 
