@@ -4,6 +4,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:vector_math/vector_math.dart';
 import 'package:flutter/material.dart';
 import '../main.dart' as main;
+import 'package:firebase_auth/firebase_auth.dart';
 
 class FallDetectionService {
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
@@ -40,6 +41,13 @@ class FallDetectionService {
   FallDetectionService({required this.onFallDetected});
 
   void startMonitoring() {
+    // ตรวจสอบว่ามีการล็อกอินหรือไม่
+    if (FirebaseAuth.instance.currentUser == null) {
+      print("FallDetectionService: ไม่มีการล็อกอิน ไม่เริ่มการตรวจจับการล้ม");
+      return;
+    }
+    
+    print("FallDetectionService: เริ่มการตรวจจับการล้ม");
     _accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
       // คำนวณขนาดของแรง (magnitude) จากแกน x, y, z
       double acceleration = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
@@ -103,6 +111,12 @@ class FallDetectionService {
   void _checkFallPattern() async {
     // ป้องกันการเรียกซ้ำและการเรียกเร็วเกิดไป
     if (_processingFall) return;
+    
+    // ตรวจสอบว่ามีการล็อกอินหรือไม่
+    if (FirebaseAuth.instance.currentUser == null) {
+      print("FallDetectionService: ไม่มีการล็อกอิน ไม่ทำการตรวจจับการล้ม");
+      return;
+    }
     
     // ตรวจสอบ cooldown period
     if (_lastFallDetection != null) {

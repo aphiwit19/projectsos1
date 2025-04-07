@@ -11,6 +11,7 @@ import '../main.dart'; // import main.dart เพื่อใช้ตัวแ�
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../features/auth/login_screen.dart'; // เพิ่ม import สำหรับ LoginScreen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -27,6 +28,21 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // ตรวจสอบว่ามีการล็อกอินหรือไม่
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      print("HomeScreen: ไม่มีการล็อกอิน ไม่เริ่มบริการตรวจจับการล้ม");
+      // นำทางไปยังหน้าล็อกอิน
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginScreen()),
+        );
+      });
+      return;
+    }
+    
     _fallDetectionService = FallDetectionService(
       onFallDetected: _handleFallDetection,
     );

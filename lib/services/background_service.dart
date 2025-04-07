@@ -162,6 +162,13 @@ void onStart(ServiceInstance service) async {
       print("Fall detected in background service!");
       
       try {
+        // ตรวจสอบว่ามีการล็อกอินหรือไม่
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null || user.email == null) {
+          print("BackgroundService: ไม่มีการล็อกอิน ไม่แสดงการแจ้งเตือนการล้ม");
+          return;
+        }
+        
         /* คอมเมนต์ออกเพื่อทดสอบการแจ้งเตือน
         // ตรวจสอบเครดิตก่อนแสดงการแจ้งเตือน
         bool hasCreditAvailable = await checkCreditAvailable();
@@ -174,19 +181,16 @@ void onStart(ServiceInstance service) async {
         */
         
         // บันทึกการตรวจพบการล้มลง Firestore
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null && user.email != null) {
-          await FirebaseFirestore.instance
-              .collection('Users')
-              .doc(user.email)
-              .collection('fall_events')
-              .add({
-                'timestamp': FieldValue.serverTimestamp(),
-                'confirmed': false,
-                'action_taken': 'notification_shown',
-                'detection_type': 'automatic',
-              });
-        }
+        await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.email)
+            .collection('fall_events')
+            .add({
+              'timestamp': FieldValue.serverTimestamp(),
+              'confirmed': false,
+              'action_taken': 'notification_shown',
+              'detection_type': 'automatic',
+            });
         
         // เรียกใช้ NotificationService เพื่อแสดงการแจ้งเตือนพร้อมเสียงและตัวนับเวลา
         await NotificationService().showFallDetectionAlert(
@@ -200,9 +204,8 @@ void onStart(ServiceInstance service) async {
         service.invoke("fall_detected", {
           "timestamp": DateTime.now().toIso8601String(),
         });
-        
       } catch (e) {
-        print('=== ERROR HANDLING FALL DETECTION: $e ===');
+        print("Error in handleFallDetection: $e");
       }
     }
     
@@ -210,6 +213,13 @@ void onStart(ServiceInstance service) async {
     void checkFallPattern() async {
       // ป้องกันการเรียกซ้ำและการเรียกเร็วเกินไป
       if (processingFall) return;
+      
+      // ตรวจสอบว่ามีการล็อกอินหรือไม่
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null || user.email == null) {
+        print("BackgroundService: ไม่มีการล็อกอิน ไม่ตรวจสอบการล้ม");
+        return;
+      }
       
       // ตรวจสอบ cooldown period
       if (lastFallDetection != null) {
