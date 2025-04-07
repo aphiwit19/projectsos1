@@ -7,6 +7,7 @@ import '../../screens/home_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/location_service.dart';
 import '../../services/sos_service.dart';
+import '../../main.dart' as main;
 
 class SosConfirmationScreen extends StatefulWidget {
   final String detectionSource; // เพิ่มพารามิเตอร์เพื่อระบุที่มาของการเปิดหน้าจอ
@@ -29,6 +30,20 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // ตรวจสอบว่ามีการป้องกันการเปิดหน้านี้หรือไม่
+    if (main.preventOpeningSosConfirmationScreen) {
+      print("SosConfirmationScreen: มีการป้องกันการเปิดหน้า SOS confirmation ตรวจพบ กำลังปิดหน้าจอ");
+      // ปิดหน้า SOS confirmation และกลับไปหน้า HomeScreen
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      });
+      return;
+    }
+    
     _startCountdown();
     
     // บันทึกข้อมูลการตรวจพบการล้มลง Firestore ตามแหล่งที่มา

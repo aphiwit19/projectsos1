@@ -345,32 +345,8 @@ void onStart(ServiceInstance service) async {
       service.stopSelf();
     });
 
-    // รับคำสั่งจาก main app
-    service.on('confirm_sos').listen((event) {
-      print('=== RECEIVED CONFIRM_SOS COMMAND ===');
-      // ตั้งค่าสถานะเพื่อป้องกันการทำงานซ้ำ
-      isSosConfirmed = true;
-      isSosCancelled = false;
-      
-      try {
-        // ยกเลิก timer สำหรับนับถอยหลัง (เพราะจะส่ง SOS ทันที)
-        NotificationService().cancelNotificationsAndTimers();
-        
-        // ส่ง SOS โดยตรงจาก background service
-        _sendSosFromBackground();
-      } catch (e) {
-        print('=== ERROR HANDLING CONFIRM_SOS: $e ===');
-        NotificationService().showSosFailedNotification(e.toString());
-      }
-      
-      // รีเซ็ตสถานะหลัง 30 วินาที
-      Timer(Duration(seconds: 30), () {
-        isSosConfirmed = false;
-      });
-    });
-    
     // ฟังก์ชันส่ง SOS จาก background service
-    void _sendSosFromBackground() async {
+    Future<void> _sendSosFromBackground() async {
       try {
         // แสดงการแจ้งเตือนว่ากำลังส่ง SOS
         NotificationService().showSendingSosNotification();
@@ -427,6 +403,30 @@ void onStart(ServiceInstance service) async {
         NotificationService().showSosFailedNotification(e.toString());
       }
     }
+    
+    // รับคำสั่งจาก main app
+    service.on('confirm_sos').listen((event) {
+      print('=== RECEIVED CONFIRM_SOS COMMAND ===');
+      // ตั้งค่าสถานะเพื่อป้องกันการทำงานซ้ำ
+      isSosConfirmed = true;
+      isSosCancelled = false;
+      
+      try {
+        // ยกเลิก timer สำหรับนับถอยหลัง (เพราะจะส่ง SOS ทันที)
+        NotificationService().cancelNotificationsAndTimers();
+        
+        // ส่ง SOS โดยตรงจาก background service
+        _sendSosFromBackground();
+      } catch (e) {
+        print('=== ERROR HANDLING CONFIRM_SOS: $e ===');
+        NotificationService().showSosFailedNotification(e.toString());
+      }
+      
+      // รีเซ็ตสถานะหลัง 30 วินาที
+      Timer(Duration(seconds: 30), () {
+        isSosConfirmed = false;
+      });
+    });
     
     service.on('send_sos').listen((event) {
       print('=== RECEIVED SEND_SOS COMMAND ===');

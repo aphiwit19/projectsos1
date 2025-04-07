@@ -12,11 +12,9 @@ import 'scripts/seed_first_aid.dart'; // เพิ่ม import สำหรั�
 import 'scripts/seed_news.dart'; // เพิ่ม import สำหรับ seed_news
 import 'services/background_service.dart';
 import 'services/notification_service.dart';
-import 'features/sos/sos_confirmation_screen.dart';
 import 'dart:async'; // เพิ่ม import สำหรับ StreamController
 import 'package:cloud_firestore/cloud_firestore.dart'; // เพิ่ม import สำหรับ Firestore
 import 'package:geolocator/geolocator.dart';
-import 'package:location/location.dart';
 
 // ตัวแปรควบคุมการทำงานระหว่าง background และ foreground
 bool isProcessingFallDetection = false;
@@ -26,6 +24,7 @@ const int GLOBAL_COOLDOWN_PERIOD = 15000; // 15 วินาที cooldown ใ�
 // เพิ่มตัวแปรควบคุมสถานะการส่ง SOS
 bool sosConfirmed = false;
 bool sosCancelled = false;
+bool preventOpeningSosConfirmationScreen = false; // เพิ่มตัวแปรเพื่อป้องกันการเปิดหน้า SOS confirmation
 
 // Stream controller สำหรับส่งข้อมูลจาก background service ไปยัง foreground
 final StreamController<bool> fallDetectionStreamController = StreamController<bool>.broadcast();
@@ -80,6 +79,9 @@ void handleActionFromNotification(String actionId) async {
     sosConfirmed = true;
     sosCancelled = false;
     
+    // ตั้งค่าป้องกันการเปิดหน้า SOS confirmation
+    preventSosConfirmationScreen();
+    
     // แจ้ง background service ว่ามีการยืนยัน
     service.invoke("confirm_sos", {
       "timestamp": DateTime.now().toIso8601String(),
@@ -100,9 +102,12 @@ void handleActionFromNotification(String actionId) async {
 
 // ฟังก์ชันสำหรับส่ง SOS โดยตรงจากการแจ้งเตือน
 Future<void> sendSosDirectly() async {
+  print('DIRECT SOS: เริ่มการส่ง SOS โดยตรงจากการแจ้งเตือน');
   try {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && user.email != null) {
+      print('DIRECT SOS: พบข้อมูลผู้ใช้ ${user.email}');
+      
       // บันทึกข้อมูลการส่ง SOS ไปยัง Firestore
       final sosRef = await FirebaseFirestore.instance
           .collection('Users')
@@ -115,7 +120,7 @@ Future<void> sendSosDirectly() async {
             'location': await _getCurrentLocation(),
           });
       
-      print("SOS record created with ID: ${sosRef.id}");
+      print("DIRECT SOS: สร้างบันทึก SOS แล้วด้วย ID: ${sosRef.id}");
       
       // ดึงข้อมูลผู้ติดต่อฉุกเฉิน
       final userData = await FirebaseFirestore.instance
@@ -123,8 +128,11 @@ Future<void> sendSosDirectly() async {
           .doc(user.email)
           .get();
       
+      print("DIRECT SOS: ดึงข้อมูลผู้ใช้แล้ว");
+      
       // อัพเดทสถานะเป็นส่งสำเร็จ
       await sosRef.update({'status': 'sent'});
+      print("DIRECT SOS: อัพเดทสถานะเป็น 'sent' แล้ว");
       
       // ลดเครดิต (ถ้ามีการเช็คเครดิต)
       /*
@@ -137,15 +145,16 @@ Future<void> sendSosDirectly() async {
       */
       
       // แสดงการแจ้งเตือนว่าส่งสำเร็จ
-      NotificationService().showSosSuccessNotification();
+      await NotificationService().showSosSuccessNotification();
+      print("DIRECT SOS: แสดงการแจ้งเตือนว่าส่งสำเร็จแล้ว");
       
     } else {
-      print("User not logged in, cannot send SOS");
-      NotificationService().showSosFailedNotification("ไม่พบข้อมูลผู้ใช้");
+      print("DIRECT SOS: ไม่พบข้อมูลผู้ใช้ ไม่สามารถส่ง SOS ได้");
+      await NotificationService().showSosFailedNotification("ไม่พบข้อมูลผู้ใช้");
     }
   } catch (e) {
-    print("Error sending SOS directly: $e");
-    NotificationService().showSosFailedNotification("เกิดข้อผิดพลาด: $e");
+    print("DIRECT SOS: เกิดข้อผิดพลาดในการส่ง SOS: $e");
+    await NotificationService().showSosFailedNotification("เกิดข้อผิดพลาด: $e");
   }
 }
 
@@ -199,6 +208,18 @@ Future<bool> _checkCreditAvailable() async {
   }
 }
 
+// ฟังก์ชันสำหรับตั้งค่าให้ไม่เปิดหน้า SOS confirmation
+void preventSosConfirmationScreen() {
+  preventOpeningSosConfirmationScreen = true;
+  print("Main: Preventing SOS confirmation screen from opening");
+  
+  // ตั้งเวลารีเซ็ตค่าหลังจาก 2 นาที
+  Timer(Duration(minutes: 2), () {
+    preventOpeningSosConfirmationScreen = false;
+    print("Main: Reset prevention flag for SOS confirmation screen");
+  });
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); // เริ่มต้น Firebase
@@ -225,8 +246,12 @@ void main() async {
   // เริ่มต้น NotificationService
   await NotificationService().initialize();
   
+  // แจ้งให้ NotificationService ทราบว่าการแจ้งเตือนจะถูกจัดการโดยแอปหลัก
+  NotificationService().markNotificationHandledByMainApp();
+  
   // สำรองการลงทะเบียนการตอบสนองการแจ้งเตือน
   try {
+    print("Main: กำลังลงทะเบียนตัวรับการแจ้งเตือนในแอปหลัก");
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
     
     flutterLocalNotificationsPlugin.initialize(
@@ -234,16 +259,17 @@ void main() async {
         android: AndroidInitializationSettings('notification_icon'),
       ),
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        print("Main: Received notification response: ${response.actionId}");
+        print("Main: ได้รับการตอบสนองการแจ้งเตือน: ${response.actionId}");
         if (response.actionId != null) {
+          print("Main: ส่งต่อการตอบสนองไปยัง handleActionFromNotification");
           handleActionFromNotification(response.actionId!);
         }
       },
     );
     
-    print("Main: Flutter Local Notifications Plugin initialized successfully");
+    print("Main: ลงทะเบียนตัวรับการแจ้งเตือนเรียบร้อยแล้ว");
   } catch (e) {
-    print("Main: Error initializing notification response handler: $e");
+    print("Main: เกิดข้อผิดพลาดในการลงทะเบียนตัวรับการแจ้งเตือน: $e");
   }
 
   // ฟังก์ชันตรวจสอบ global cooldown
@@ -279,18 +305,7 @@ void main() async {
   runApp(MyApp());
 }
 
-/// รับเหตุการณ์การคลิกการแจ้งเตือน (ไม่ถูกใช้แล้ว แต่เก็บไว้เป็น reference)
-void _handleNotificationAction(NotificationResponse details) {
-  print("Legacy notification handler called: ${details.actionId}");
-  if (details.actionId == 'CONFIRM_SOS') {
-    // เปิดแอพที่หน้า SOS confirmation screen
-    navigatorKey.currentState?.pushReplacement(
-      MaterialPageRoute(builder: (context) => SosConfirmationScreen(detectionSource: 'notification')),
-    );
-  }
-}
-
-// ฟังก์ชันสำหรับตรวจสอบ cooldown ระดับแอป ที่สามารถเรียกใช้จากบริการอื่นๆ
+/// ฟังก์ชันสำหรับตรวจสอบ cooldown ระดับแอป ที่สามารถเรียกใช้จากบริการอื่นๆ
 bool checkGlobalFallDetectionCooldown() {
   if (isProcessingFallDetection) return false;
   

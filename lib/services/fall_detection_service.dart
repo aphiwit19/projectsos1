@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:vector_math/vector_math.dart';
+import 'package:flutter/material.dart';
+import '../main.dart' as main;
 
 class FallDetectionService {
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
@@ -124,6 +127,13 @@ class FallDetectionService {
           bool isStable = await _checkStabilityAfterFall();
           
           if (isStable) {
+            // ตรวจสอบว่ามีการป้องกันการเปิดหน้า SOS confirmation หรือไม่
+            if (main.preventOpeningSosConfirmationScreen) {
+              print("Fall confirmed but SOS process already in progress, ignoring fall detection");
+              _resetDetectionState();
+              return;
+            }
+            
             print("Fall confirmed: High acceleration, high rotation, followed by stability");
             _lastFallDetection = DateTime.now();
             onFallDetected();
