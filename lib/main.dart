@@ -6,6 +6,7 @@ import 'package:intl/intl.dart'; // เพิ่ม import สำหรับ in
 import 'package:intl/date_symbol_data_local.dart'; // เพิ่ม import สำหรับการเริ่มต้น locale
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_background_service/flutter_background_service.dart'; // เพิ่ม import
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/splash_screen.dart';
 import 'scripts/seed_emergency_numbers.dart';
 import 'scripts/seed_first_aid.dart'; // เพิ่ม import สำหรับ seed_first_aid
@@ -66,8 +67,10 @@ void handleActionFromNotification(String actionId) async {
       print("Main: เกิดข้อผิดพลาดในการแสดงการแจ้งเตือน: $e");
     }
     
-    // รีเซ็ตสถานะหลัง 30 วินาที
-    Timer(Duration(seconds: 30), () {
+    // รีเซ็ตสถานะหลังจากเวลาที่กำหนด
+    final prefs = await SharedPreferences.getInstance();
+    final resetTime = prefs.getInt('auto_fall_countdown_time') ?? 30;
+    Timer(Duration(seconds: resetTime), () {
       sosCancelled = false;
     });
   } else if (actionId == 'CONFIRM_SOS') {
@@ -106,8 +109,10 @@ void handleActionFromNotification(String actionId) async {
     // ส่ง SOS ทันที โดยไม่ต้องเปิดหน้าจอยืนยัน
     sendSosDirectly();
     
-    // รีเซ็ตสถานะหลัง 30 วินาที
-    Timer(Duration(seconds: 30), () {
+    // รีเซ็ตสถานะหลังจากเวลาที่กำหนด
+    final prefs = await SharedPreferences.getInstance();
+    final resetTime = prefs.getInt('auto_fall_countdown_time') ?? 30;
+    Timer(Duration(seconds: resetTime), () {
       sosConfirmed = false;
     });
   }
@@ -204,14 +209,22 @@ Future<bool> _checkCreditAvailable() async {
 }
 
 // ฟังก์ชันสำหรับตั้งค่าให้ไม่เปิดหน้า SOS confirmation
-void preventSosConfirmationScreen() {
+void preventSosConfirmationScreen() async {
   preventOpeningSosConfirmationScreen = true;
   print("Main: Preventing SOS confirmation screen from opening");
   
-  // ตั้งเวลารีเซ็ตค่าหลังจาก 2 นาที
-  Timer(Duration(minutes: 2), () {
+  // ดึงค่าเวลาจาก SharedPreferences และเพิ่มขึ้น 2 เท่า (หรือ 2 นาที หากไม่มีค่า)
+  final prefs = await SharedPreferences.getInstance();
+  final autoFallCountdownTime = prefs.getInt('auto_fall_countdown_time') ?? 30;
+  final resetTime = autoFallCountdownTime * 2; // เพิ่มเป็น 2 เท่าของเวลานับถอยหลัง
+  
+  // ถ้าเวลารีเซ็ต (2 เท่าของเวลานับถอยหลัง) น้อยกว่า 120 วินาที (2 นาที) ให้ใช้ 120 วินาที
+  final finalResetTime = resetTime < 120 ? 120 : resetTime;
+  
+  // ตั้งเวลารีเซ็ตค่า
+  Timer(Duration(seconds: finalResetTime), () {
     preventOpeningSosConfirmationScreen = false;
-    print("Main: Reset prevention flag for SOS confirmation screen");
+    print("Main: Reset prevention flag for SOS confirmation screen after $finalResetTime seconds");
   });
 }
 
@@ -283,6 +296,9 @@ void main() async {
     if (canProcessFallDetection()) {
       // ส่งสัญญาณ stream เพื่อให้ foreground ไม่ทำงานซ้ำซ้อน
       fallDetectionStreamController.add(true);
+      
+      // ป้องกันการเปิดหน้า SOS confirmation
+      preventSosConfirmationScreen();
       
       // หลังจากประมวลผลเสร็จ 5 วินาที ให้รีเซ็ต flag
       Timer(Duration(seconds: 5), () {

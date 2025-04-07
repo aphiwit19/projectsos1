@@ -9,13 +9,14 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import '../main.dart' as main;
 import 'package:geolocator/geolocator.dart';
 import '../services/sos_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   final AudioPlayer _audioPlayer = AudioPlayer();
   Timer? _autoSosTimer;
-  int _remainingSeconds = 30; // เวลาถอยหลัง 30 วินาที
+  int _remainingSeconds = 30; // เวลาถอยหลัง 30 วินาที (ค่าเริ่มต้น)
   
   // เพิ่มตัวแปรสำหรับป้องกันการแจ้งเตือนซ้ำ
   DateTime? _lastFallNotificationTime;
@@ -401,8 +402,11 @@ class NotificationService {
   }
 
   // เริ่มนับถอยหลังอัตโนมัติ
-  void _startAutoSosCountdown() {
-    _remainingSeconds = 30;
+  void _startAutoSosCountdown() async {
+    // ดึงค่าจาก SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    _remainingSeconds = prefs.getInt('auto_fall_countdown_time') ?? 30;
+    
     print("Starting auto SOS countdown: $_remainingSeconds seconds");
     
     // ยกเลิกตัวจับเวลาเดิมถ้ามี

@@ -8,6 +8,7 @@ import '../../services/auth_service.dart';
 import '../../services/location_service.dart';
 import '../../services/sos_service.dart';
 import '../../main.dart' as main;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SosConfirmationScreen extends StatefulWidget {
   final String detectionSource; // เพิ่มพารามิเตอร์เพื่อระบุที่มาของการเปิดหน้าจอ
@@ -44,10 +45,28 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
       return;
     }
     
-    _startCountdown();
+    _loadCountdownSetting();
     
     // บันทึกข้อมูลการตรวจพบการล้มลง Firestore ตามแหล่งที่มา
     _logSOSRequest();
+  }
+  
+  // โหลดการตั้งค่าเวลานับถอยหลัง
+  Future<void> _loadCountdownSetting() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedCountdown = prefs.getInt('sos_countdown_time') ?? 5;
+      setState(() {
+        _countdown = savedCountdown;
+      });
+      _startCountdown();
+    } catch (e) {
+      print('Error loading countdown setting: $e');
+      setState(() {
+        _countdown = 5; // ใช้ค่าเริ่มต้นหากเกิดข้อผิดพลาด
+      });
+      _startCountdown();
+    }
   }
   
   // บันทึกข้อมูลการเรียกใช้ SOS

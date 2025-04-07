@@ -13,6 +13,7 @@ import '../../models/user_profile_model.dart';
 import '../../services/emergency_contact_service.dart';
 import '../../models/emergency_contact_model.dart';
 import '../menu/menu_screen.dart';
+import '../settings/safety_settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -140,6 +141,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => HistoryScreen()),
+    );
+  }
+
+  void _openSafetySettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SafetySettingsScreen()),
     );
   }
 
@@ -554,6 +562,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: _viewHistory,
                   child: const Text(
                     "ประวัติการแจ้งเหตุ",
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: _openSafetySettings,
+                  child: const Text(
+                    "การตั้งค่า",
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.black,

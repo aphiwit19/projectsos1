@@ -12,6 +12,7 @@ import 'firebase_service.dart';
 import 'notification_service.dart'; // เพิ่ม import สำหรับ notification service
 import 'package:flutter/material.dart'; // นำเข้า Material package เพื่อใช้ enum ของ Android
 import 'sos_service.dart'; // เพิ่ม import สำหรับ SosService
+import 'package:shared_preferences/shared_preferences.dart';
 
 // เพิ่มค่าคงที่สำหรับการตรวจจับการล้ม
 const double ACCELERATION_THRESHOLD = 23.0; // เพิ่มขึ้นเล็กน้อยเพื่อลดความไว
@@ -78,6 +79,15 @@ Future<void> initializeService() async {
 
 @pragma('vm:entry-point')
 Future<bool> onIosBackground(ServiceInstance service) async {
+  // ตรวจสอบการตั้งค่าระบบตรวจจับการล้ม
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final fallDetectionEnabled = prefs.getBool('fall_detection_enabled') ?? true;
+    print("iOS background: Fall detection ${fallDetectionEnabled ? 'enabled' : 'disabled'}");
+  } catch (e) {
+    print("iOS background: Error checking fall detection settings: $e");
+  }
+  
   final FlutterBackgroundService service = FlutterBackgroundService();
   return await service.isRunning();
 }
@@ -85,6 +95,9 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   try {
+    // ตัวแปรที่ใช้ร่วมกันในทั้งฟังก์ชัน
+    bool fallDetectionEnabled = true; // ค่าเริ่มต้นเป็น true เพื่อความปลอดภัย
+    
     print('=== BACKGROUND SERVICE STARTED ===');
     print('Background service started at ${DateTime.now()}');
     
@@ -93,7 +106,7 @@ void onStart(ServiceInstance service) async {
       // ปรับปรุงข้อความในการแจ้งเตือนให้ชัดเจนว่าเป็นการแจ้งเตือนถาวร
       await service.setForegroundNotificationInfo(
         title: "AppSOS - ระบบติดตามกำลังทำงาน",
-        content: "แอปติดตามตำแหน่งและตรวจจับการล้มทำงานอยู่ในพื้นหลัง",
+        content: "ระบบติดตามตำแหน่ง" + (fallDetectionEnabled ? " และตรวจจับการล้มทำงานอยู่" : " ทำงานอยู่ (ปิดระบบตรวจจับการล้ม)"),
       );
       print('=== FOREGROUND SERVICE SET ===');
     }
@@ -119,6 +132,81 @@ void onStart(ServiceInstance service) async {
     bool processingFall = false;
     DateTime? lastFallDetection;
     List<double> recentAccelerations = [];
+    
+    // ฟังก์ชันอัพเดทการตั้งค่า
+    Future<void> updateSettings() async {
+      try {
+        // ดึงการตั้งค่าจาก SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        fallDetectionEnabled = prefs.getBool('fall_detection_enabled') ?? true;
+        
+        // ตรวจสอบการตั้งค่าจาก Firestore
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null && user.email != null) {
+          try {
+            final userDoc = await FirebaseFirestore.instance
+                .collection('Users')
+                .doc(user.email)
+                .get();
+                
+            if (userDoc.exists && userDoc.data()!.containsKey('settings')) {
+              final settings = userDoc.data()!['settings'];
+              if (settings != null && settings.containsKey('fall_detection_enabled')) {
+                // อัพเดทการตั้งค่าใน SharedPreferences จาก Firestore
+                final firebaseSettingEnabled = settings['fall_detection_enabled'] as bool;
+                if (firebaseSettingEnabled != fallDetectionEnabled) {
+                  print("Updating fall detection setting from Firestore: ${firebaseSettingEnabled ? 'enabled' : 'disabled'}");
+                  await prefs.setBool('fall_detection_enabled', firebaseSettingEnabled);
+                  fallDetectionEnabled = firebaseSettingEnabled;
+                }
+              }
+            }
+          } catch (e) {
+            print("Error checking Firestore settings: $e");
+          }
+        }
+        
+        print("Fall detection setting updated: ${fallDetectionEnabled ? 'enabled' : 'disabled'}");
+        
+        // อัพเดทข้อความแจ้งเตือนเพื่อแสดงสถานะปัจจุบัน
+        if (service is AndroidServiceInstance) {
+          await service.setForegroundNotificationInfo(
+            title: "AppSOS - ระบบติดตามกำลังทำงาน",
+            content: "ระบบติดตามตำแหน่ง" + (fallDetectionEnabled ? " และตรวจจับการล้มทำงานอยู่" : " ทำงานอยู่ (ปิดระบบตรวจจับการล้ม)"),
+          );
+        }
+      } catch (e) {
+        print("Error updating fall detection settings: $e");
+        // ถ้าเกิดข้อผิดพลาด ให้ตั้งค่าเป็น enabled เพื่อความปลอดภัย
+        fallDetectionEnabled = true;
+      }
+    }
+    
+    // เรียกเพื่ออัพเดทการตั้งค่าเมื่อเริ่มต้น
+    await updateSettings();
+    
+    // ตั้งเวลาให้ตรวจสอบการตั้งค่าทุก 60 วินาที
+    Timer.periodic(Duration(seconds: 60), (_) async {
+      await updateSettings();
+    });
+    
+    // ฟังการเปลี่ยนแปลงการตั้งค่าใน Firestore
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email != null) {
+      FirebaseFirestore.instance
+          .collection('Users')
+          .doc(user.email)
+          .snapshots()
+          .listen((snapshot) async {
+        print("User document updated in Firestore");
+        if (snapshot.exists && snapshot.data()!.containsKey('settings')) {
+          print("Settings found in Firestore, updating local settings");
+          await updateSettings();
+        }
+      }, onError: (error) {
+        print("Error listening to Firestore changes: $error");
+      });
+    }
     
     // ฟังก์ชันสำหรับตรวจสอบระยะทางระหว่างตำแหน่ง - ยังคงต้องการสำหรับการคำนวณระยะทาง
     double calculateDistance(Position pos1, Position pos2) {
@@ -220,18 +308,22 @@ void onStart(ServiceInstance service) async {
         }
         */
         
+        // ดึงการตั้งค่าเวลานับถอยหลังจาก SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final autoFallCountdownTime = prefs.getInt('auto_fall_countdown_time') ?? 30;
+        
         // เรียกใช้ NotificationService เพื่อแสดงการแจ้งเตือนพร้อมเสียงและตัวนับเวลา
         await NotificationService().showFallDetectionAlert(
           notificationId: 888,
           title: '⚠️ ตรวจพบการล้ม!',
-          body: 'จะส่ง SOS อัตโนมัติใน 30 วินาที\nกดยืนยันเพื่อส่ง SOS หรือยกเลิกหากไม่ต้องการความช่วยเหลือ',
+          body: 'จะส่ง SOS อัตโนมัติใน $autoFallCountdownTime วินาที\nกดยืนยันเพื่อส่ง SOS หรือยกเลิกหากไม่ต้องการความช่วยเหลือ',
           playSound: true,
         );
         
-        // ส่งข้อมูลไปยังแอปหลัก (ถ้าจำเป็น)
-        service.invoke("fall_detected", {
-          "timestamp": DateTime.now().toIso8601String(),
-        });
+        // ลบส่วนนี้ออกเพื่อป้องกันการเปิดหน้า SOS confirmation screen
+        // service.invoke("fall_detected", {
+        //   "timestamp": DateTime.now().toIso8601String(),
+        // });
       } catch (e) {
         print("Error in handleFallDetection: $e");
       }
@@ -239,54 +331,63 @@ void onStart(ServiceInstance service) async {
     
     // ฟังก์ชันตรวจสอบรูปแบบการล้ม
     void checkFallPattern() async {
-      // ป้องกันการเรียกซ้ำและการเรียกเร็วเกินไป
+      // ถ้ามีการประมวลผลอยู่แล้ว หรืออยู่ในช่วง cooldown ให้ข้าม
       if (processingFall) return;
       
-      // ตรวจสอบว่ามีการล็อกอินหรือไม่
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null || user.email == null) {
-        print("BackgroundService: ไม่มีการล็อกอิน ไม่ตรวจสอบการล้ม");
+      // ตรวจสอบว่าระบบตรวจจับการล้มเปิดอยู่หรือไม่
+      if (!fallDetectionEnabled) {
+        print("Fall detection is disabled in settings");
         return;
       }
       
-      // ตรวจสอบ cooldown period
+      // ตรวจสอบ cooldown
       if (lastFallDetection != null) {
-        int timeSinceLastFall = DateTime.now().difference(lastFallDetection!).inMilliseconds;
-        if (timeSinceLastFall < COOLDOWN_PERIOD) {
-          print("Still in cooldown period: ${(COOLDOWN_PERIOD - timeSinceLastFall) / 1000} seconds left");
+        int timeSinceLast = DateTime.now().difference(lastFallDetection!).inMilliseconds;
+        if (timeSinceLast < COOLDOWN_PERIOD) {
+          print("In cooldown period: ${(COOLDOWN_PERIOD - timeSinceLast) / 1000} seconds left");
           return;
         }
       }
       
-      // ตรวจสอบว่ามีทั้งความเร่งสูงและการหมุนเร็ว ภายในช่วงเวลาที่กำหนด
-      if (highAccelerationDetected && highRotationDetected) {
-        // ตรวจสอบว่าเหตุการณ์ทั้งสองเกิดขึ้นภายใน 300ms หรือไม่
-        if (accelerationTime != null && rotationTime != null) {
-          int timeDifference = (accelerationTime!.difference(rotationTime!)).inMilliseconds.abs();
+      // ตรวจสอบรูปแบบการล้ม: ความเร่งสูงตามด้วยการหมุนในช่วงเวลาที่ใกล้เคียงกัน
+      if (highAccelerationDetected && highRotationDetected && 
+          accelerationTime != null && rotationTime != null) {
+        
+        // ตรวจสอบว่าเวลาระหว่างสองเหตุการณ์ห่างกันไม่เกิน 500 ms
+        int timeDifference = accelerationTime!.difference(rotationTime!).inMilliseconds.abs();
+        if (timeDifference < 500) {
+          processingFall = true;
           
-          if (timeDifference < 300) {
-            processingFall = true;
-            print("Potential fall detected in background. Checking stability...");
-            
-            // ตรวจสอบความนิ่งหลังการล้ม
-            bool isStable = await checkStabilityAfterFall();
-            
-            if (isStable) {
-              print("Fall confirmed in background: High acceleration, high rotation, followed by stability");
-              lastFallDetection = DateTime.now();
-              handleFallDetection();
-            } else {
-              print("Not a fall: No stability period detected after motion");
-            }
-            
+          print("Fall pattern detected! Checking stability...");
+          
+          // ตรวจสอบความนิ่งหลังการล้ม
+          bool isStable = await checkStabilityAfterFall();
+          if (isStable) {
+            print("Person seems stable after fall - likely false positive");
+            processingFall = false;
             resetDetectionState();
+            return;
           }
+          
+          // บันทึกเวลาล่าสุดที่ตรวจพบการล้ม
+          lastFallDetection = DateTime.now();
+          
+          // แจ้งเตือนการตรวจพบการล้ม
+          handleFallDetection();
+          
+          // รีเซ็ตสถานะการตรวจจับ
+          resetDetectionState();
         }
       }
     }
     
     // เริ่มการติดตามเซนเซอร์ accelerometer
     accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
+      // ไม่ตรวจจับการล้มถ้าระบบถูกปิดใช้งาน
+      if (!fallDetectionEnabled) {
+        return;
+      }
+      
       // คำนวณขนาดของแรง (magnitude) จากแกน x, y, z
       double acceleration = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
       
@@ -304,6 +405,11 @@ void onStart(ServiceInstance service) async {
 
     // เริ่มการติดตามเซนเซอร์ gyroscope
     gyroscopeSubscription = gyroscopeEvents.listen((GyroscopeEvent event) {
+      // ไม่ตรวจจับการล้มถ้าระบบถูกปิดใช้งาน
+      if (!fallDetectionEnabled) {
+        return;
+      }
+      
       // คำนวณขนาดการหมุนจากแกน x, y, z
       double rotation = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
 
@@ -432,8 +538,10 @@ void onStart(ServiceInstance service) async {
       // ส่ง SOS
       await _sendSosFromBackground();
       
-      // รีเซ็ตสถานะหลัง 30 วินาที
-      Timer(Duration(seconds: 30), () {
+      // รีเซ็ตสถานะหลังจากเวลาที่กำหนด
+      final prefs = await SharedPreferences.getInstance();
+      final resetTime = prefs.getInt('auto_fall_countdown_time') ?? 30;
+      Timer(Duration(seconds: resetTime), () {
         isSosConfirmed = false;
       });
     });
@@ -452,8 +560,10 @@ void onStart(ServiceInstance service) async {
       // ยกเลิกการนับถอยหลังที่อาจมีอยู่ก่อนหน้านี้ใน NotificationService
       NotificationService().cancelNotificationsAndTimers();
       
-      // รีเซ็ตสถานะหลัง 30 วินาที
-      Timer(Duration(seconds: 30), () {
+      // รีเซ็ตสถานะหลังจากเวลาที่กำหนด
+      final prefs = await SharedPreferences.getInstance();
+      final resetTime = prefs.getInt('auto_fall_countdown_time') ?? 30;
+      Timer(Duration(seconds: resetTime), () {
         isSosCancelled = false;
       });
     });
