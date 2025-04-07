@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import '../main.dart' as main;
 import 'package:geolocator/geolocator.dart';
+import '../services/sos_service.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -483,43 +484,21 @@ class NotificationService {
         // แสดงการแจ้งเตือนว่ากำลังส่ง SOS
         await showSendingSosNotification();
         
-        // บันทึกข้อมูลการส่ง SOS ไปยัง Firestore
-        final sosRef = await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(user.email)
-            .collection('sos_events')
-            .add({
-              'timestamp': FieldValue.serverTimestamp(),
-              'status': 'sending',
-              'source': 'notification_direct',
-              'location': await _getCurrentLocation(),
-            });
+        // ใช้ SosService เพื่อส่ง SOS และบันทึกข้อมูลในรูปแบบเดียวกัน
+        final sosService = SosService();
+        final result = await sosService.sendSos(
+          user.uid,
+          detectionSource: 'notification',
+        );
         
-        print("NotificationService: สร้างบันทึก SOS แล้วด้วย ID: ${sosRef.id}");
-        
-        // ดึงข้อมูลผู้ติดต่อฉุกเฉิน
-        final userData = await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(user.email)
-            .get();
-        
-        print("NotificationService: ดึงข้อมูลผู้ใช้แล้ว");
-        
-        // อัพเดทสถานะเป็นส่งสำเร็จ
-        await sosRef.update({'status': 'sent'});
-        print("NotificationService: อัพเดทสถานะเป็น 'sent' แล้ว");
-        
-        // ลดเครดิต (ถ้ามีการเช็คเครดิต)
-        /*await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(user.email)
-            .update({
-              'credit': FieldValue.increment(-1),
-            });*/
-        
-        // แสดงการแจ้งเตือนว่าส่งสำเร็จ
-        await showSosSuccessNotification();
-        
+        if (result['success']) {
+          print("NotificationService: ส่ง SOS สำเร็จ: ${result['message']}");
+          // แสดงการแจ้งเตือนว่าส่งสำเร็จ
+          await showSosSuccessNotification();
+        } else {
+          print("NotificationService: ส่ง SOS ไม่สำเร็จ: ${result['message']}");
+          await showSosFailedNotification(result['message'] ?? "การส่ง SOS ล้มเหลว");
+        }
       } else {
         print("NotificationService: ไม่พบข้อมูลผู้ใช้ ไม่สามารถส่ง SOS ได้");
         await showSosFailedNotification("ไม่พบข้อมูลผู้ใช้");

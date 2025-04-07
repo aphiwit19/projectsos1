@@ -51,7 +51,7 @@ class SosService {
     String detectionSource = 'manual',
   }) async {
     try {
-      print('SOS Service: เริ่มต้นกระบวนการส่ง SOS สำหรับผู้ใช้ $userId');
+      print('SOS Service: เริ่มต้นกระบวนการส่ง SOS สำหรับผู้ใช้ $userId (source: $detectionSource)');
       
       // ดึงข้อมูลผู้ใช้
       final user = await _getUserData(userId);
@@ -84,74 +84,106 @@ class SosService {
       
       print('SOS Service: พบผู้ติดต่อฉุกเฉิน ${contacts.length} คน');
 
-      // สร้างข้อความ SOS
+      // สร้างข้อความ SOS แบบเดียวกันทุกประเภทการแจ้งเหตุ
       final userName = user['name'] ?? 'ผู้ใช้';
       final currentTime = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
       
-      final messagePrefix = detectionSource == 'automatic' 
-          ? '[ระบบตรวจพบการล้ม]' 
-          : detectionSource == 'notification'
-              ? '[ยืนยันจากการแจ้งเตือน]'
-              : '[แจ้งเหตุฉุกเฉิน]';
-      
+      // สร้างข้อความที่มีข้อมูลเพิ่มเติม
       final message = '''
-$messagePrefix ฉุกเฉิน! $userName ต้องการความช่วยเหลือ
+🚨 SOS! ฉุกเฉิน! $userName ต้องการความช่วยเหลือด่วน!
 เวลา: $currentTime
-ตำแหน่ง: $positionLink
+👤 ข้อมูลผู้ใช้:
+- ชื่อ: ${user['name'] ?? 'ไม่ระบุ'}
+- เบอร์โทร: ${user['phone'] ?? 'ไม่ระบุ'}
+- กรุ๊ปเลือด: ${user['bloodType'] ?? 'ไม่ระบุ'}
+- อาการป่วย: ${user['medicalConditions'] ?? 'ไม่ระบุ'}
+- ภูมิแพ้: ${user['allergies'] ?? 'ไม่ระบุ'}
+📍 พิกัดปัจจุบัน: $positionLink
+${detectionSource == 'automatic' ? '[ระบบตรวจพบการล้ม]' : detectionSource == 'notification' ? '[ยืนยันจากการแจ้งเตือน]' : '[ผู้ใช้แจ้งเหตุฉุกเฉิน]'}
 ''';
 
-      // ส่ง SMS ไปยังผู้ติดต่อทั้งหมด
-      print('SOS Service: กำลังส่ง SMS...');
-      
-      List<String> sentNumbers = [];
-      List<String> failedNumbers = [];
-      
+      // รวบรวมเบอร์โทรจากผู้ติดต่อฉุกเฉิน
+      List<String> phoneNumbers = [];
       for (final contact in contacts) {
         final phoneNumber = contact['phone'] as String?;
         if (phoneNumber != null && phoneNumber.isNotEmpty) {
-          final success = await SmsService().sendSms(
-            phoneNumber,
-            message,
-          );
-          
-          if (success) {
-            sentNumbers.add(phoneNumber);
-          } else {
-            failedNumbers.add(phoneNumber);
-          }
+          phoneNumbers.add(phoneNumber);
         }
       }
       
+      if (phoneNumbers.isEmpty) {
+        return {
+          'success': false,
+          'message': 'ไม่พบเบอร์โทรศัพท์ของผู้ติดต่อฉุกเฉิน',
+        };
+      }
+      
+      // ส่ง SMS โดยใช้ SMS Gateway API (sendBulkSms)
+      print('SOS Service: กำลังส่ง SMS ผ่าน Gateway API...');
+      final smsResult = await SmsService().sendBulkSms(phoneNumbers, message);
+      
+      // แยกเบอร์ที่ส่งสำเร็จและล้มเหลว
+      List<String> sentNumbers = [];
+      List<String> failedNumbers = [];
+      
+      smsResult.statuses.forEach((phone, status) {
+        if (status == SmsStatus.success || status == SmsStatus.pending) {
+          sentNumbers.add(phone);
+        } else {
+          failedNumbers.add(phone);
+        }
+      });
+      
       print('SOS Service: ส่ง SMS สำเร็จ ${sentNumbers.length} เบอร์, ล้มเหลว ${failedNumbers.length} เบอร์');
 
-      // บันทึกประวัติการส่ง SOS
-      print('SOS Service: กำลังบันทึกประวัติการส่ง SOS...');
+      String sosId = "not_saved";
       
-      final sosId = await _saveSosHistory(
-        userId,
-        position,
-        sentNumbers,
-        failedNumbers,
-        detectionSource,
-      );
-      
-      print('SOS Service: บันทึกประวัติ SOS เรียบร้อย ID: $sosId');
+      // บันทึกประวัติการส่ง SOS เฉพาะเมื่อส่งสำเร็จอย่างน้อย 1 เบอร์ และไม่มีปัญหาเครดิตหมด
+      if (sentNumbers.isNotEmpty && !smsResult.statuses.values.any((status) => status == SmsStatus.noCredit)) {
+        print('SOS Service: กำลังบันทึกประวัติการส่ง SOS...');
+        
+        sosId = await _saveSosHistory(
+          userId,
+          position,
+          sentNumbers,
+          failedNumbers,
+          detectionSource,
+          smsResult,
+        );
+        
+        print('SOS Service: บันทึกประวัติ SOS เรียบร้อย ID: $sosId');
+      } else if (smsResult.statuses.values.any((status) => status == SmsStatus.noCredit)) {
+        print('SOS Service: ไม่มีการบันทึกประวัติ SOS เนื่องจากเครดิต SMS Gateway หมด');
+      } else {
+        print('SOS Service: ไม่มีการบันทึกประวัติ SOS เนื่องจากส่ง SMS ไม่สำเร็จ');
+      }
 
       // คืนค่าผลลัพธ์
-      if (sentNumbers.isNotEmpty) {
+      if (smsResult.statuses.values.any((status) => status == SmsStatus.noCredit)) {
+        return {
+          'success': false,
+          'message': 'ไม่สามารถส่ง SMS เนื่องจากเครดิตหมด',
+          'sentCount': 0,
+          'failedCount': failedNumbers.length,
+          'isCreditEmpty': true,
+          'sosId': "not_saved",
+        };
+      } else if (sentNumbers.isNotEmpty || smsResult.statuses.values.any((status) => status == SmsStatus.pending)) {
         return {
           'success': true,
           'message': 'ส่ง SOS สำเร็จ ${sentNumbers.length} เบอร์',
           'sentCount': sentNumbers.length,
           'failedCount': failedNumbers.length,
           'sosId': sosId,
+          'isCreditEmpty': false,
         };
       } else {
         return {
           'success': false,
-          'message': 'ไม่สามารถส่ง SMS ไปยังผู้ติดต่อฉุกเฉินได้',
+          'message': 'ไม่สามารถส่ง SMS ไปยังผู้ติดต่อฉุกเฉินได้: ${smsResult.errorMessage}',
           'sentCount': 0,
           'failedCount': failedNumbers.length,
+          'sosId': "not_saved",
         };
       }
     } catch (e) {
@@ -282,8 +314,15 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
     List<String> sentNumbers,
     List<String> failedNumbers,
     String detectionSource,
+    SmsResult smsResult,
   ) async {
     try {
+      // บันทึกข้อมูลเฉพาะกรณีที่มีการส่ง SMS สำเร็จอย่างน้อย 1 เบอร์เท่านั้น
+      if (sentNumbers.isEmpty) {
+        // สร้าง ID ชั่วคราวแต่ไม่บันทึกข้อมูล เพราะส่ง SMS ไม่สำเร็จ
+        return "not_saved_${DateTime.now().millisecondsSinceEpoch}";
+      }
+      
       // สร้างข้อมูล SOS
       final sosData = {
         'userId': userId,
@@ -295,7 +334,7 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
         },
         'sentTo': sentNumbers,
         'failedTo': failedNumbers,
-        'status': sentNumbers.isNotEmpty ? 'success' : 'failed',
+        'status': 'success', // ถ้ามาถึงตรงนี้แสดงว่าส่งสำเร็จแล้วอย่างน้อย 1 เบอร์
         'detectionSource': detectionSource,
         'mapLink': 'https://maps.google.com/?q=${position.latitude},${position.longitude}',
         'message': 'SOS ส่งเมื่อ ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
@@ -303,23 +342,28 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
         'userInfo': {
           'userId': userId,
         },
+        'smsGatewayResult': {
+          'allSuccess': smsResult.allSuccess,
+          'errorMessage': smsResult.errorMessage,
+          'statuses': smsResult.statuses.map((phone, status) => MapEntry(phone, statusToString(status))),
+        },
       };
       
-      // บันทึกลงฐานข้อมูล
-      final docRef = await _firestore.collection('sos_history').add(sosData);
+      // บันทึกลงฐานข้อมูลกลาง (เป็นสำรองในกรณีที่ไม่สามารถบันทึกในระดับผู้ใช้ได้)
+      final docRef = await _firestore.collection('sos_logs').add(sosData);
 
       try {
         // ค้นหา document ID ของผู้ใช้ (email)
         String? email = await _getEmailFromUserId(userId);
         
         if (email != null) {
-          // บันทึกลง user document ด้วย email
-          await _firestore.collection('Users').doc(email).collection('sos_history').doc(docRef.id).set(sosData);
-          print('บันทึกประวัติ SOS ใน Users/$email/sos_history เรียบร้อย');
+          // บันทึกลง user document ด้วย email ในคอลเลกชัน sos_logs เท่านั้น
+          await _firestore.collection('Users').doc(email).collection('sos_logs').doc(docRef.id).set(sosData);
+          print('บันทึกประวัติ SOS ใน Users/$email/sos_logs เรียบร้อย');
         } else {
-          // พยายามบันทึกโดยตรงด้วย userId
-          await _firestore.collection('Users').doc(userId).collection('sos_history').doc(docRef.id).set(sosData);
-          print('บันทึกประวัติ SOS ใน Users/$userId/sos_history เรียบร้อย');
+          // พยายามบันทึกโดยตรงด้วย userId ในคอลเลกชัน sos_logs เท่านั้น
+          await _firestore.collection('Users').doc(userId).collection('sos_logs').doc(docRef.id).set(sosData);
+          print('บันทึกประวัติ SOS ใน Users/$userId/sos_logs เรียบร้อย');
         }
       } catch (e) {
         print('ไม่สามารถบันทึกประวัติ SOS ใน Users collection: $e');
@@ -332,6 +376,22 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
       rethrow; // ส่งต่อ error
     }
   }
+  
+  // เพิ่มฟังก์ชันช่วยแปลง SmsStatus เป็น String
+  String statusToString(SmsStatus status) {
+    switch (status) {
+      case SmsStatus.success:
+        return 'success';
+      case SmsStatus.failed:
+        return 'failed';
+      case SmsStatus.pending:
+        return 'pending';
+      case SmsStatus.noCredit:
+        return 'no_credit';
+      default:
+        return 'unknown';
+    }
+  }
 
   Future<List<SosLog>> getSosLogs(String userId) async {
     try {
@@ -340,22 +400,7 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
         return [];
       }
 
-      // ลองดึงข้อมูลจากคอลเลกชัน sos_events ก่อน
-      QuerySnapshot eventsSnapshot = await _firestore
-          .collection('Users')
-          .doc(email)
-          .collection('sos_events')
-          .orderBy('timestamp', descending: true)
-          .get();
-
-      if (eventsSnapshot.docs.isNotEmpty) {
-        print('พบข้อมูลประวัติ SOS จำนวน ${eventsSnapshot.docs.length} รายการในคอลเลกชัน sos_events');
-        return eventsSnapshot.docs
-            .map((doc) => SosLog.fromJson(doc.data() as Map<String, dynamic>, doc.id))
-            .toList();
-      }
-
-      // ถ้าไม่พบข้อมูลใน sos_events ให้ลองดึงจาก sos_logs (เผื่อเป็นข้อมูลเก่า)
+      // ดึงข้อมูลจากคอลเลกชัน sos_logs เท่านั้น
       QuerySnapshot logsSnapshot = await _firestore
           .collection('Users')
           .doc(email)
@@ -363,10 +408,85 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
           .orderBy('timestamp', descending: true)
           .get();
 
+      if (logsSnapshot.docs.isEmpty) {
+        print('ไม่พบข้อมูลประวัติ SOS ในคอลเลกชัน sos_logs');
+        return [];
+      }
+      
       print('พบข้อมูลประวัติ SOS จำนวน ${logsSnapshot.docs.length} รายการในคอลเลกชัน sos_logs');
-      return logsSnapshot.docs
+      
+      // แปลงข้อมูลเป็น SosLog
+      List<SosLog> allLogs = logsSnapshot.docs
           .map((doc) => SosLog.fromJson(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
+      
+      // กรองเฉพาะข้อมูลที่ส่ง SMS สำเร็จ ไม่รวมกรณีเครดิตหมด
+      allLogs = allLogs.where((log) {
+        // กรณีเป็น UI event หรือ การเปิดหน้าจอยืนยัน
+        if (log.extraData.containsKey('action')) {
+          String action = log.extraData['action'].toString();
+          if (action == 'sos_confirmation_opened' ||
+              action.startsWith('ui_') ||
+              action.contains('_screen')) {
+            return false;
+          }
+        }
+      
+        // ตรวจสอบกรณีเครดิตหมด
+        if (log.id.startsWith('not_saved_')) {
+          return false;
+        }
+        
+        // ตรวจสอบจากข้อมูล SMS Gateway
+        if (log.extraData.containsKey('smsGatewayResult')) {
+          var smsResult = log.extraData['smsGatewayResult'];
+          if (smsResult is Map) {
+            if (smsResult.containsKey('allSuccess') && smsResult['allSuccess'] == false) {
+              // ถ้ามีข้อความเกี่ยวกับเครดิตหมด
+              if (smsResult.containsKey('errorMessage') && 
+                  smsResult['errorMessage'] is String && 
+                  smsResult['errorMessage'].toString().toLowerCase().contains('credit')) {
+                return false;
+              }
+              
+              // ตรวจสอบว่ามีเบอร์ที่ส่งสำเร็จบ้างหรือไม่
+              if (smsResult.containsKey('statuses') && 
+                  smsResult['statuses'] is Map &&
+                  !smsResult['statuses'].values.any((status) => status == 'success')) {
+                return false;
+              }
+            }
+          }
+        }
+        
+        // ตรวจสอบจากฟิลด์ sentTo หรือ recipients
+        bool hasSentNumbers = false;
+        
+        if (log.extraData.containsKey('sentTo') && log.extraData['sentTo'] is List) {
+          hasSentNumbers = (log.extraData['sentTo'] as List).isNotEmpty;
+        }
+        
+        if (!hasSentNumbers && log.recipients.isNotEmpty) {
+          hasSentNumbers = true;
+        }
+        
+        if (!hasSentNumbers) {
+          return false;
+        }
+        
+        // ตรวจสอบจากฟิลด์สถานะ
+        if (log.extraData.containsKey('status')) {
+          String status = log.extraData['status'].toString();
+          if (status != 'success' && status != 'sent') {
+            return false;
+          }
+        }
+        
+        return true;
+      }).toList();
+      
+      print('กรองแล้วพบประวัติ SOS ที่ส่งสำเร็จจำนวน ${allLogs.length} รายการ');
+      return allLogs;
     } on Exception catch (e) {
       debugPrint('Error loading SOS logs: $e');
       return [];
@@ -385,22 +505,7 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
       bool success = false;
 
       try {
-        // ลองลบจากคอลเลกชัน sos_events ก่อน
-        await _firestore
-            .collection('Users')
-            .doc(email)
-            .collection('sos_events')
-            .doc(sosLogId)
-            .delete();
-        
-        debugPrint('SOS log deleted successfully from sos_events: $sosLogId');
-        success = true;
-      } catch (e) {
-        debugPrint('Error or not found when deleting from sos_events: $e');
-      }
-
-      try {
-        // ลองลบจากคอลเลกชัน sos_logs (เผื่อเป็นข้อมูลเก่า)
+        // ลบจากคอลเลกชัน sos_logs (หลัก) ในระดับผู้ใช้
         await _firestore
             .collection('Users')
             .doc(email)
@@ -412,6 +517,19 @@ $messagePrefix ฉุกเฉิน! $userName ต้องการควา�
         success = true;
       } catch (e) {
         debugPrint('Error or not found when deleting from sos_logs: $e');
+      }
+      
+      // ลบจากคอลเลกชันกลาง sos_logs ด้วย (ถ้ามี)
+      try {
+        await _firestore
+            .collection('sos_logs')
+            .doc(sosLogId)
+            .delete();
+            
+        debugPrint('SOS log deleted successfully from global sos_logs: $sosLogId');
+        success = true;
+      } catch (e) {
+        debugPrint('Error or not found when deleting from global sos_logs: $e');
       }
       
       return success;

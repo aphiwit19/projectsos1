@@ -232,9 +232,19 @@ class AuthService {
   Future<void> addSosLog(
     String action,
     String description,
-    Map<String, dynamic> additionalData,
-  ) async {
+    Map<String, dynamic> additionalData, {
+    bool shouldRecord = false,  // เพิ่มพารามิเตอร์สำหรับกำหนดว่าควรบันทึกหรือไม่
+  }) async {
     try {
+      // ไม่บันทึกข้อมูลในกรณี action เป็น 'sos_confirmation_opened' หรือเกี่ยวกับ UI events และ shouldRecord เป็น false
+      if (!shouldRecord && 
+          (action == 'sos_confirmation_opened' || 
+           action.contains('ui_') || 
+           action.contains('_screen'))) {
+        print('ข้ามการบันทึก SOS log สำหรับเหตุการณ์ UI: $action');
+        return;
+      }
+      
       // ดึง userId ปัจจุบัน
       String? userId = await getUserId();
       if (userId == null) {
@@ -258,7 +268,7 @@ class AuthService {
         ...additionalData,
       };
       
-      // บันทึกลงฐานข้อมูล
+      // บันทึกเฉพาะในคอลเลกชัน sos_logs
       await _firestore
           .collection('Users')
           .doc(email)

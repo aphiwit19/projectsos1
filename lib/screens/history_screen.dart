@@ -63,25 +63,44 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
         throw Exception('ไม่พบรหัสผู้ใช้');
       }
 
+      // ใช้ SosService เพื่อดึงประวัติการแจ้งเหตุทั้งหมด
       List<SosLog> logs = await SosService().getSosLogs(userId);
       
       // กรองเฉพาะประวัติที่ส่ง SMS สำเร็จเท่านั้น
       logs = logs.where((log) {
-        // ตรวจสอบจากฟิลด์ anySmsSent (ถ้ามี)
-        if (log.extraData.containsKey('anySmsSent')) {
-          return log.extraData['anySmsSent'] == true;
+        // ตรวจเช็คกรณีเครดิตหมดหรือมี ID ที่ไม่ได้บันทึกจริง
+        if (log.id.startsWith('not_saved_') || 
+            (log.extraData.containsKey('smsGatewayResult') &&
+             log.extraData['smsGatewayResult'] is Map &&
+             (log.extraData['smsGatewayResult']['allSuccess'] == false ||
+              (log.extraData['smsGatewayResult']['errorMessage'] is String &&
+               log.extraData['smsGatewayResult']['errorMessage'].toString().toLowerCase().contains('credit'))))) {
+          return false;
         }
-        // ตรวจสอบจากฟิลด์ smsStatuses (ถ้ามี)
-        else if (log.extraData.containsKey('smsStatuses')) {
-          Map<String, dynamic> statuses = log.extraData['smsStatuses'];
-          return statuses.values.any((status) => status == 'success');
+        
+        // เช็คสถานะว่าเครดิตหมดหรือไม่
+        if (log.extraData.containsKey('isCreditEmpty') && log.extraData['isCreditEmpty'] == true) {
+          return false;
         }
-        // สำหรับข้อมูลเก่าที่ใช้ฟิลด์ smsSent
-        else if (log.extraData.containsKey('smsSent')) {
-          return log.extraData['smsSent'] == true;
+
+        // ตรวจสอบว่ามีรายชื่อผู้รับหรือไม่
+        if (log.recipients.isNotEmpty) {
+          return true;
         }
-        // ถ้าไม่มีข้อมูลสถานะ SMS ให้แสดงเสมอ (เผื่อมีประวัติเก่า)
-        return true;
+        
+        // ตรวจสอบจากฟิลด์ sentTo (ถ้ามี)
+        if (log.extraData.containsKey('sentTo') && log.extraData['sentTo'] is List) {
+          return (log.extraData['sentTo'] as List).isNotEmpty;
+        }
+        
+        // ตรวจสอบจากฟิลด์สถานะที่อาจมี
+        if (log.extraData.containsKey('status')) {
+          return log.extraData['status'] == 'success' || 
+                 log.extraData['status'] == 'sent';
+        }
+        
+        // ในกรณีที่ไม่มีข้อมูลให้ตรวจสอบ ไม่แสดงรายการเพื่อความปลอดภัย
+        return false;
       }).toList();
       
       setState(() {

@@ -11,6 +11,7 @@ import 'package:sensors_plus/sensors_plus.dart'; // เพิ่ม import ส�
 import 'firebase_service.dart';
 import 'notification_service.dart'; // เพิ่ม import สำหรับ notification service
 import 'package:flutter/material.dart'; // นำเข้า Material package เพื่อใช้ enum ของ Android
+import 'sos_service.dart'; // เพิ่ม import สำหรับ SosService
 
 // เพิ่มค่าคงที่สำหรับการตรวจจับการล้ม
 const double ACCELERATION_THRESHOLD = 23.0; // เพิ่มขึ้นเล็กน้อยเพื่อลดความไว
@@ -219,16 +220,19 @@ void onStart(ServiceInstance service) async {
         }
         */
         
-        // บันทึกการตรวจพบการล้มลง Firestore
+        // บันทึกการตรวจพบการล้มลง Firestore ในคอลเลกชัน sos_logs 
         await FirebaseFirestore.instance
             .collection('Users')
             .doc(user.email)
-            .collection('fall_events')
+            .collection('sos_logs')
             .add({
               'timestamp': FieldValue.serverTimestamp(),
               'confirmed': false,
               'action_taken': 'notification_shown',
               'detection_type': 'automatic',
+              'status': 'pending',
+              'message': 'ตรวจพบการล้ม รอการยืนยัน',
+              'detectionSource': 'automatic',
             });
         
         // เรียกใช้ NotificationService เพื่อแสดงการแจ้งเตือนพร้อมเสียงและตัวนับเวลา
@@ -388,49 +392,34 @@ void onStart(ServiceInstance service) async {
         // แสดงการแจ้งเตือนว่ากำลังส่ง SOS
         NotificationService().showSendingSosNotification();
         
-        // บันทึกข้อมูลการส่ง SOS ใน Firestore
+        // ใช้ SosService เพื่อส่ง SOS ในรูปแบบเดียวกับทุกการแจ้งเหตุ
         final user = FirebaseAuth.instance.currentUser;
-        if (user != null && user.email != null) {
-          // ดึงตำแหน่งปัจจุบัน
-          Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high
+        if (user != null && user.uid != null) {
+          // นำเข้า SosService ในบริเวณนี้เพื่อป้องกันปัญหา circular dependency
+          // import SosService นอกฟังก์ชันนี้เพื่อป้องกันปัญหา circular dependency
+          final sosService = SosService();
+          
+          // เรียกใช้ SosService เพื่อส่ง SOS (ตั้งค่าแหล่งที่มาเป็น background_service)
+          final result = await sosService.sendSos(
+            user.uid,
+            detectionSource: 'automatic',
           );
           
-          // บันทึกข้อมูลการส่ง SOS
-          final sosRef = await FirebaseFirestore.instance
-              .collection('Users')
-              .doc(user.email)
-              .collection('sos_events')
-              .add({
-                'timestamp': FieldValue.serverTimestamp(),
-                'status': 'sending',
-                'source': 'background_service',
-                'location': {
-                  'latitude': position.latitude,
-                  'longitude': position.longitude,
-                  'accuracy': position.accuracy,
-                },
-              });
-          
-          print("SOS record created with ID: ${sosRef.id}");
-          
-          // อัพเดทสถานะเป็นส่งสำเร็จ
-          await sosRef.update({'status': 'sent'});
-          
-          // ลดเครดิต (ถ้ามี)
-          /* คอมเมนต์ออกเพื่อทดสอบ
-          await FirebaseFirestore.instance
-              .collection('Users')
-              .doc(user.email)
-              .update({
-                'credit': FieldValue.increment(-1),
-              });
-          */
-          
-          // แสดงการแจ้งเตือนว่าส่งสำเร็จ
-          NotificationService().showSosSuccessNotification();
-          
-          print('=== SOS SENT SUCCESSFULLY ===');
+          if (result['success']) {
+            print('=== SOS SENT SUCCESSFULLY: ${result['message']} ===');
+            // แสดงการแจ้งเตือนว่าส่งสำเร็จ
+            NotificationService().showSosSuccessNotification();
+          } else {
+            print('=== FAILED TO SEND SOS: ${result['message']} ===');
+            
+            // ตรวจสอบว่าเป็นกรณีเครดิตหมดหรือไม่
+            final bool isCreditEmpty = result['isCreditEmpty'] ?? false;
+            if (isCreditEmpty) {
+              NotificationService().showSosFailedNotification('ไม่สามารถส่ง SMS เนื่องจากเครดิตหมด กรุณาติดต่อผู้ดูแลระบบ');
+            } else {
+              NotificationService().showSosFailedNotification(result['message'] ?? "การส่ง SOS ล้มเหลว");
+            }
+          }
         } else {
           print('=== USER NOT LOGGED IN, CANNOT SEND SOS ===');
           NotificationService().showSosFailedNotification("ไม่พบข้อมูลผู้ใช้ โปรดล็อกอินใหม่");

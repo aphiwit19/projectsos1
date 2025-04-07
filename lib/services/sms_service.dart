@@ -27,6 +27,32 @@ class SmsResult {
   String toString() {
     return 'SmsResult(allSuccess: $allSuccess, statuses: $statuses, errorMessage: $errorMessage)';
   }
+  
+  // แปลง SmsStatus เป็น String สำหรับแสดงผล
+  String statusToString(SmsStatus status) {
+    switch (status) {
+      case SmsStatus.success:
+        return 'success';
+      case SmsStatus.failed:
+        return 'failed';
+      case SmsStatus.pending:
+        return 'pending';
+      case SmsStatus.noCredit:
+        return 'no_credit';
+      default:
+        return 'unknown';
+    }
+  }
+  
+  // แปลง SmsResult เป็น Map เพื่อบันทึกลง Firestore
+  Map<String, dynamic> toJson() {
+    return {
+      'allSuccess': allSuccess,
+      'errorMessage': errorMessage,
+      'statuses': statuses.map((phone, status) => 
+          MapEntry(phone, statusToString(status))),
+    };
+  }
 }
 
 class SmsService {

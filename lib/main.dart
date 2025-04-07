@@ -15,6 +15,7 @@ import 'services/notification_service.dart';
 import 'dart:async'; // เพิ่ม import สำหรับ StreamController
 import 'package:cloud_firestore/cloud_firestore.dart'; // เพิ่ม import สำหรับ Firestore
 import 'package:geolocator/geolocator.dart';
+import 'services/sos_service.dart';
 
 // ตัวแปรควบคุมการทำงานระหว่าง background และ foreground
 bool isProcessingFallDetection = false;
@@ -120,53 +121,35 @@ Future<void> sendSosDirectly() async {
     if (user != null && user.email != null) {
       print('DIRECT SOS: พบข้อมูลผู้ใช้ ${user.email}');
       
-      // บันทึกข้อมูลการส่ง SOS ไปยัง Firestore
-      final sosRef = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(user.email)
-          .collection('sos_events')
-          .add({
-            'timestamp': FieldValue.serverTimestamp(),
-            'status': 'sending',
-            'source': 'notification_direct',
-            'location': await _getCurrentLocation(),
-          });
+      // ใช้ SosService เพื่อส่ง SOS แบบเดียวกันทั้งหมด
+      final sosService = SosService();
+      final result = await sosService.sendSos(
+        user.uid,
+        detectionSource: 'notification',
+      );
       
-      print("DIRECT SOS: สร้างบันทึก SOS แล้วด้วย ID: ${sosRef.id}");
-      
-      // ดึงข้อมูลผู้ติดต่อฉุกเฉิน
-      final userData = await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(user.email)
-          .get();
-      
-      print("DIRECT SOS: ดึงข้อมูลผู้ใช้แล้ว");
-      
-      // อัพเดทสถานะเป็นส่งสำเร็จ
-      await sosRef.update({'status': 'sent'});
-      print("DIRECT SOS: อัพเดทสถานะเป็น 'sent' แล้ว");
-      
-      // ลดเครดิต (ถ้ามีการเช็คเครดิต)
-      /*
-      await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(user.email)
-          .update({
-            'credit': FieldValue.increment(-1),
-          });
-      */
-      
-      // แสดงการแจ้งเตือนว่าส่งสำเร็จ
-      await NotificationService().showSosSuccessNotification();
-      print("DIRECT SOS: แสดงการแจ้งเตือนว่าส่งสำเร็จแล้ว");
-      
+      if (result['success']) {
+        print('DIRECT SOS: ส่ง SOS สำเร็จ: ${result['message']}');
+        // แสดงการแจ้งเตือนว่าส่งสำเร็จ
+        await NotificationService().showSosSuccessNotification();
+      } else {
+        print('DIRECT SOS: ส่ง SOS ไม่สำเร็จ: ${result['message']}');
+        
+        // ตรวจสอบว่าเป็นกรณีเครดิตหมดหรือไม่
+        final bool isCreditEmpty = result['isCreditEmpty'] ?? false;
+        if (isCreditEmpty) {
+          await NotificationService().showSosFailedNotification('ไม่สามารถส่ง SMS เนื่องจากเครดิตหมด กรุณาติดต่อผู้ดูแลระบบ');
+        } else {
+          await NotificationService().showSosFailedNotification(result['message'] ?? "การส่ง SOS ล้มเหลว");
+        }
+      }
     } else {
-      print("DIRECT SOS: ไม่พบข้อมูลผู้ใช้ ไม่สามารถส่ง SOS ได้");
+      print('DIRECT SOS: ไม่พบข้อมูลผู้ใช้ ไม่สามารถส่ง SOS ได้');
       await NotificationService().showSosFailedNotification("ไม่พบข้อมูลผู้ใช้");
     }
   } catch (e) {
-    print("DIRECT SOS: เกิดข้อผิดพลาดในการส่ง SOS: $e");
-    await NotificationService().showSosFailedNotification("เกิดข้อผิดพลาด: $e");
+    print('DIRECT SOS: เกิดข้อผิดพลาด: $e');
+    await NotificationService().showSosFailedNotification('เกิดข้อผิดพลาด: ${e.toString()}');
   }
 }
 

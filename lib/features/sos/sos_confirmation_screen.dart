@@ -63,6 +63,7 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
             'detection_source': widget.detectionSource,
             'timestamp': DateTime.now().toString(),
           },
+          shouldRecord: false,  // กำหนดให้ไม่บันทึกข้อมูลนี้
         );
       }
     } catch (e) {
@@ -144,16 +145,21 @@ class _SosConfirmationScreenState extends State<SosConfirmationScreen> {
           );
         } else {
           // กรณีส่งไม่สำเร็จ
-          setState(() {
-            _statusMessage = result['message'] ?? 'เกิดข้อผิดพลาดในการส่ง SOS';
-          });
-          
-          // ตรวจสอบว่าเป็นกรณีเครดิตหมดหรือไม่
           final bool isCreditEmpty = result['isCreditEmpty'] ?? false;
+          
+          setState(() {
+            if (isCreditEmpty) {
+              _statusMessage = 'ไม่สามารถส่ง SMS ได้เนื่องจากเครดิตหมด';
+            } else {
+              _statusMessage = result['message'] ?? 'เกิดข้อผิดพลาดในการส่ง SOS';
+            }
+          });
           
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['message'] ?? 'เกิดข้อผิดพลาดในการส่ง SOS'),
+              content: Text(isCreditEmpty 
+                ? 'ไม่สามารถส่ง SMS ได้เนื่องจากเครดิตหมด กรุณาติดต่อผู้ดูแลระบบ'
+                : (result['message'] ?? 'เกิดข้อผิดพลาดในการส่ง SOS')),
               backgroundColor: isCreditEmpty ? Colors.orange : Colors.red,
               duration: const Duration(seconds: 5),
             ),
