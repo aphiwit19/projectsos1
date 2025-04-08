@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_profile_model.dart';
+import 'package:intl/intl.dart';
 
 // เพิ่ม enum เพื่อแสดงสถานะการส่ง SMS ที่ละเอียดมากขึ้น
 enum SmsStatus {
@@ -56,98 +57,100 @@ class SmsResult {
 }
 
 class SmsService {
-  // ข้อมูลสำหรับเชื่อมต่อกับ API THSMS (V1)
-  final String _apiUsername = 'apirebmp';
-  final String _apiPassword = 'Aphiwit@2546';
-  final String _apiUrl = 'https://thsms.com/api/rest';
-  final String _sender = 'DirectSMS'; // ชื่อผู้ส่งที่ลงทะเบียนกับ THSMS
+  static final SmsService _instance = SmsService._internal();
+  factory SmsService() => _instance;
 
-  // Token สำหรับ API V2 (เก็บไว้เผื่อต้องการใช้ในอนาคต)
-  final String _apiTokenV2 = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC90aHNtcy5jb21cL21hbmFnZVwvYXBpLWtleSIsImlhdCI6MTc0MzQyNDM5MSwibmJmIjoxNzQzNDI1OTY4LCJqdGkiOiJrZ1htbmJVZFljR3J5YkY0Iiwic3ViIjoxMTE3MjYsInBydiI6IjIzYmQ1Yzg5NDlmNjAwYWRiMzllNzAxYzQwMDg3MmRiN2E1OTc2ZjcifQ.v3gfImvvTC3-A7sHaoXaHUXmkyElmZI8S4UYF_EiYzM';
+  // API Key ของแอพ
+  final String _username = 'YOUR_SMS_USERNAME'; // ใส่ Username ของ SMS Gateway
+  final String _password = 'YOUR_SMS_PASSWORD'; // ใส่ Password ของ SMS Gateway
+  final String _sender = 'YOUR_SENDER_NAME'; // ใส่ชื่อผู้ส่ง
+  final String _apiUrl = 'https://api.thsms.com/v1/send';
 
-  // เมธอดสำหรับเช็คเครดิต
+  SmsService._internal();
+
+  // เมธอดสำหรับตรวจสอบเครดิต
   Future<Map<String, dynamic>> checkCredit() async {
     try {
-      // ใช้ API V1 สำหรับตรวจสอบเครดิต
-      final String creditUrl = '$_apiUrl?username=$_apiUsername&password=$_apiPassword&method=credit';
-      
-      debugPrint('ทดสอบการเชื่อมต่อ API: $creditUrl');
-      
-      final response = await http.get(Uri.parse(creditUrl));
-      
-      debugPrint('รหัสการตอบกลับ: ${response.statusCode}');
-      debugPrint('ข้อมูลการตอบกลับ: ${response.body}');
-      
+      final response = await http.get(
+        Uri.parse('https://api.thsms.com/v1/credit'),
+        headers: {
+          'Authorization': 'Basic ${base64Encode(utf8.encode('$_username:$_password'))}',
+        },
+      );
+
       if (response.statusCode == 200) {
-        // ตรวจสอบว่าการตอบกลับเป็น XML และมีสถานะ success หรือไม่
-        if (response.body.contains('<status>success</status>')) {
-          // แยกค่าเครดิตจาก XML
-          final RegExp creditRegex = RegExp(r'<amount>(.*?)</amount>');
-          final match = creditRegex.firstMatch(response.body);
-          
-          String credit = '0';
-          if (match != null && match.groupCount >= 1) {
-            credit = match.group(1) ?? '0';
-          }
-          
-          return {
-            'status': 'success',
-            'credit': credit,
-            'balance': credit,
-            'hasCredit': double.tryParse(credit) != null && double.parse(credit) > 0,
-          };
-        } else {
-          return {
-            'status': 'error',
-            'credit': '0',
-            'balance': '0',
-            'hasCredit': false,
-            'message': 'การเชื่อมต่อล้มเหลว: ${response.body}'
-          };
-        }
-      } else {
+        final Map<String, dynamic> data = json.decode(response.body);
         return {
-          'status': 'error',
-          'credit': '0',
-          'balance': '0',
-          'hasCredit': false,
-          'message': 'การเชื่อมต่อล้มเหลว (${response.statusCode}): ${response.body}'
+          'success': true,
+          'credit': data['credit'] ?? 0,
         };
       }
-    } catch (e) {
-      debugPrint('Error checking credit: $e');
+
       return {
-        'status': 'error',
-        'credit': '0',
-        'balance': '0',
-        'hasCredit': false,
-        'message': 'เกิดข้อผิดพลาดในการตรวจสอบเครดิต: $e'
+        'success': false,
+        'error': 'ไม่สามารถตรวจสอบเครดิตได้ (${response.statusCode})',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'เกิดข้อผิดพลาดในการตรวจสอบเครดิต: $e',
       };
     }
   }
 
-  // สร้างข้อความ SOS จากข้อมูลผู้ใช้และตำแหน่ง
-  String createSosMessage(UserProfile userProfile, String mapLink) {
-    return '🚨 SOS! ฉุกเฉิน! ${userProfile.fullName ?? 'ผู้ใช้'} ต้องการความช่วยเหลือด่วน!\n\n'
-        '👤 ข้อมูลผู้ใช้:\n'
-        '- ชื่อ: ${userProfile.fullName ?? 'ไม่ระบุ'}\n'
-        '- เบอร์โทร: ${userProfile.phone ?? 'ไม่ระบุ'}\n'
-        '- กรุ๊ปเลือด: ${userProfile.bloodType ?? 'ไม่ระบุ'}\n'
-        '- อาการป่วย: ${userProfile.medicalConditions ?? 'ไม่ระบุ'}\n'
-        '- ภูมิแพ้: ${userProfile.allergies ?? 'ไม่ระบุ'}\n\n'
-        '📍 พิกัดปัจจุบัน: $mapLink\n\n'
-        'กดลิงก์ด้านบนเพื่อดูตำแหน่งบน Google Maps';
+  // สร้างข้อความ SOS หลัก (แบบสั้นสำหรับทดสอบ)
+  String createSosMessage(UserProfile user, String positionLink) {
+    return "เหตุฉุกเฉิน";
+  }
+
+  // สร้างข้อความที่มีข้อมูลทางการแพทย์ (แบบสั้นสำหรับทดสอบ)
+  String createMedicalInfoMessage(UserProfile user) {
+    return "เหตุฉุกเฉิน";
   }
   
-  // ส่งข้อความ SOS ไปยังผู้ติดต่อฉุกเฉินทั้งหมด (แก้ไขให้ส่งคืน SmsResult)
+  // ส่งข้อความ SOS ไปยังผู้ติดต่อฉุกเฉินทั้งหมด
   Future<SmsResult> sendSosMessage(UserProfile userProfile, String mapLink, List<String> phoneNumbers) async {
     try {
       if (phoneNumbers.isEmpty) {
         throw Exception('ไม่มีเบอร์โทรศัพท์ผู้ติดต่อฉุกเฉิน');
       }
       
-      String messageText = createSosMessage(userProfile, mapLink);
-      return await sendBulkSms(phoneNumbers, messageText);
+      // ข้อความหลักที่สั้นและสำคัญที่สุด
+      String primaryMessage = createSosMessage(userProfile, mapLink);
+      
+      // ข้อความเสริมสำหรับข้อมูลทางการแพทย์
+      String medicalMessage = createMedicalInfoMessage(userProfile);
+      
+      // ส่งข้อความหลักที่สำคัญก่อน
+      SmsResult mainResult = await sendBulkSms(phoneNumbers, primaryMessage);
+      bool hasSentSecondary = false;
+      
+      // หากการส่งข้อความหลักสำเร็จ ให้ส่งข้อความเพิ่มเติม
+      if (mainResult.allSuccess || mainResult.statuses.values.contains(SmsStatus.success)) {
+        await Future.delayed(Duration(seconds: 2)); // รอสักครู่ก่อนส่งข้อความถัดไป
+        SmsResult medicalResult = await sendBulkSms(
+          phoneNumbers.where((phone) => 
+            mainResult.statuses[phone] == SmsStatus.success).toList(), 
+          medicalMessage
+        );
+        hasSentSecondary = true;
+        
+        // รวมผลลัพธ์
+        Map<String, SmsStatus> combinedStatuses = Map.from(mainResult.statuses);
+        medicalResult.statuses.forEach((phone, status) {
+          if (combinedStatuses[phone] == SmsStatus.success && status != SmsStatus.success) {
+            combinedStatuses[phone] = SmsStatus.pending; // ถ้าส่งข้อความแรกได้แต่ข้อความที่สองไม่ได้
+          }
+        });
+        
+        return SmsResult(
+          allSuccess: mainResult.allSuccess && medicalResult.allSuccess,
+          statuses: combinedStatuses,
+          errorMessage: mainResult.errorMessage.isNotEmpty ? mainResult.errorMessage : medicalResult.errorMessage,
+        );
+      }
+      
+      return mainResult;
     } catch (e) {
       debugPrint('Error sending SOS message: $e');
       return SmsResult(
@@ -162,19 +165,359 @@ class SmsService {
     }
   }
 
-  // เมธอดสำหรับส่ง SMS ไปยังหมายเลขเดียว (ส่งคืนค่าเป็น bool)
-  Future<bool> sendSms(String phoneNumber, String message) async {
+  // เมธอดสำหรับส่ง SMS ไปยังหมายเลขเดียว
+  Future<SmsResult> sendSms(String phoneNumber, String message) async {
     try {
-      SmsResult result = await sendBulkSms([phoneNumber], message);
-      return result.allSuccess || result.statuses[phoneNumber] == SmsStatus.success;
+      debugPrint('กำลังส่ง SMS ไปยัง $phoneNumber');
+      debugPrint('ข้อความ: $message');
+      
+      final response = await http.post(
+        Uri.parse(_apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Basic ${base64Encode(utf8.encode('$_username:$_password'))}',
+        },
+        body: json.encode({
+          'sender': _sender,
+          'message': message,
+          'to': phoneNumber,
+        }),
+      );
+      
+      debugPrint('ผลการส่ง SMS: ${response.statusCode}');
+      debugPrint('ข้อความตอบกลับ: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        if (data['status'] == 'success') {
+          return SmsResult(
+            allSuccess: true,
+            statuses: Map.fromIterable(
+              [phoneNumber],
+              key: (phone) => phone,
+              value: (_) => SmsStatus.success
+            ),
+            errorMessage: 'ส่ง SMS สำเร็จ',
+          );
+        } else {
+          return SmsResult(
+            allSuccess: false,
+            statuses: Map.fromIterable(
+              [phoneNumber],
+              key: (phone) => phone,
+              value: (_) => SmsStatus.failed
+            ),
+            errorMessage: data['message'] ?? 'ไม่ทราบสาเหตุ',
+          );
+        }
+      }
+      
+      return SmsResult(
+        allSuccess: false,
+        statuses: Map.fromIterable(
+          [phoneNumber],
+          key: (phone) => phone,
+          value: (_) => SmsStatus.failed
+        ),
+        errorMessage: 'การเชื่อมต่อล้มเหลว (${response.statusCode}): ${response.body}',
+      );
     } catch (e) {
-      debugPrint('Error in simple sendSms: $e');
-      return false;
+      debugPrint('Error sending SMS: $e');
+      return SmsResult(
+        allSuccess: false,
+        statuses: Map.fromIterable(
+          [phoneNumber],
+          key: (phone) => phone,
+          value: (_) => SmsStatus.failed
+        ),
+        errorMessage: 'เกิดข้อผิดพลาดในการส่ง SMS: $e',
+      );
     }
   }
 
-  // เมธอดสำหรับส่ง SMS แบบกลุ่ม (API V1) (แก้ไขให้ส่งคืน SmsResult)
+  // ตรวจสอบว่าข้อความยาวเกินไปหรือไม่
+  bool _isMessageTooLong(String message) {
+    // ตรวจสอบว่ามีภาษาไทยหรือไม่
+    bool containsThai = RegExp(r'[\u0E00-\u0E7F]').hasMatch(message);
+    
+    // ตรวจสอบตามเงื่อนไข
+    if (containsThai) {
+      return message.length > 70; // ภาษาไทยรวมกับภาษาอังกฤษ ไม่เกิน 70 ตัวอักษร
+    } else {
+      return message.length > 160; // ภาษาอังกฤษล้วน ไม่เกิน 160 ตัวอักษร
+    }
+  }
+  
+  // แบ่งข้อความยาวเป็นส่วนๆ
+  List<String> _splitMessage(String message) {
+    List<String> parts = [];
+    bool containsThai = RegExp(r'[\u0E00-\u0E7F]').hasMatch(message);
+    int maxLength = containsThai ? 70 : 160;
+    int maxParts = 5; // จำกัดจำนวนข้อความที่จะส่งไม่เกิน 5 ข้อความ
+    
+    // หากข้อความยาวมาก ให้ตัดเนื้อหาบางส่วนออก
+    if (message.length > maxLength * maxParts) {
+      message = message.substring(0, maxLength * maxParts - 3) + '...';
+    }
+    
+    // แบ่งข้อความ
+    for (int i = 0; i < message.length; i += maxLength) {
+      int end = i + maxLength;
+      if (end > message.length) end = message.length;
+      
+      String part = message.substring(i, end);
+      
+      // เพิ่มส่วนต่อของข้อความ (ถ้าไม่ใช่ข้อความสุดท้าย)
+      if (end < message.length && parts.length < maxParts - 1) {
+        parts.add('(${parts.length + 1}/${(message.length / maxLength).ceil()}) $part');
+      } else if (parts.isNotEmpty) {
+        // ข้อความสุดท้าย
+        parts.add('(${parts.length + 1}/${parts.length + 1}) $part');
+      } else {
+        // มีเพียงข้อความเดียว
+        parts.add(part);
+      }
+      
+      // ถ้าแบ่งครบจำนวนข้อความสูงสุดแล้วให้หยุด
+      if (parts.length >= maxParts) break;
+    }
+    
+    return parts;
+  }
+
+  // เมธอดสำหรับส่ง SMS แบบกลุ่ม
   Future<SmsResult> sendBulkSms(List<String> phoneNumbers, String message) async {
+    try {
+      if (phoneNumbers.isEmpty) {
+        return SmsResult(
+          allSuccess: false,
+          statuses: {},
+          errorMessage: 'ไม่มีเบอร์โทรศัพท์ที่ต้องการส่ง',
+        );
+      }
+
+      // ตรวจสอบเครดิตก่อนส่ง
+      final creditCheck = await checkCredit();
+      debugPrint('ผลการตรวจสอบเครดิต: $creditCheck');
+      
+      if (!creditCheck['hasCredit']) {
+        return SmsResult(
+          allSuccess: false,
+          statuses: Map.fromIterable(
+            phoneNumbers,
+            key: (phone) => phone,
+            value: (_) => SmsStatus.failed
+          ),
+          errorMessage: 'เครดิตไม่เพียงพอ: ${creditCheck['credit']} เครดิต',
+        );
+      }
+
+      // จัดรูปแบบเบอร์โทรศัพท์
+      List<String> formattedPhones = phoneNumbers.map((phone) {
+        String formatted = phone.replaceAll('-', '').replaceAll(' ', '');
+        if (formatted.startsWith('0')) {
+          return formatted.substring(1); // ตัด 0 ออก
+        }
+        return formatted;
+      }).toList();
+
+      debugPrint('กำลังส่ง SMS ไปยังเบอร์: $formattedPhones');
+      debugPrint('ข้อความที่ส่ง: $message');
+      debugPrint('ใช้ Sender Name: $_sender');
+
+      Map<String, SmsStatus> statuses = {};
+      bool allSuccess = true;
+      String errorMessage = '';
+
+      // ส่ง SMS ทีละเบอร์
+      for (String phone in formattedPhones) {
+        try {
+          debugPrint('กำลังส่ง SMS ไปยังเบอร์: $phone');
+          
+          final response = await http.post(
+            Uri.parse(_apiUrl),
+            headers: {
+              'Authorization': 'Basic ${base64Encode(utf8.encode('$_username:$_password'))}',
+              'Content-Type': 'application/json',
+            },
+            body: json.encode({
+              'sender': _sender,
+              'message': message,
+              'to': phone,
+            }),
+          );
+
+          debugPrint('ผลการส่ง SMS: ${response.statusCode}');
+          debugPrint('ข้อความตอบกลับ: ${response.body}');
+
+          if (response.statusCode == 200) {
+            final responseData = json.decode(response.body);
+            if (responseData['status'] == 'success') {
+              statuses[phoneNumbers[formattedPhones.indexOf(phone)]] = SmsStatus.success;
+              debugPrint('ส่ง SMS สำเร็จ: $phone');
+            } else {
+              statuses[phoneNumbers[formattedPhones.indexOf(phone)]] = SmsStatus.failed;
+              allSuccess = false;
+              errorMessage = 'ส่ง SMS ไม่สำเร็จ: ${responseData['message']}';
+              debugPrint('ส่ง SMS ไม่สำเร็จ: $phone - ${responseData['message']}');
+            }
+          } else {
+            statuses[phoneNumbers[formattedPhones.indexOf(phone)]] = SmsStatus.failed;
+            allSuccess = false;
+            errorMessage = 'ส่ง SMS ไม่สำเร็จ (${response.statusCode}): ${response.body}';
+            debugPrint('ส่ง SMS ไม่สำเร็จ: $phone - $errorMessage');
+          }
+        } catch (e) {
+          statuses[phoneNumbers[formattedPhones.indexOf(phone)]] = SmsStatus.failed;
+          allSuccess = false;
+          errorMessage = 'เกิดข้อผิดพลาดในการส่ง SMS: $e';
+          debugPrint('เกิดข้อผิดพลาด: $phone - $e');
+        }
+      }
+
+      return SmsResult(
+        allSuccess: allSuccess,
+        statuses: statuses,
+        errorMessage: errorMessage,
+      );
+    } catch (e) {
+      debugPrint('Error sending bulk SMS: $e');
+      return SmsResult(
+        allSuccess: false,
+        statuses: Map.fromIterable(
+          phoneNumbers,
+          key: (phone) => phone,
+          value: (_) => SmsStatus.failed
+        ),
+        errorMessage: 'เกิดข้อผิดพลาดในการส่งข้อความ: $e',
+      );
+    }
+  }
+  
+  // เมธอดสำหรับส่งข้อความยาว โดยแบ่งเป็นส่วนๆ
+  Future<SmsResult> _sendLongMessage(List<String> phoneNumbers, String message) async {
+    List<String> messageParts = _splitMessage(message);
+    
+    bool allSuccess = true;
+    String errorMessage = '';
+    Map<String, SmsStatus> combinedStatuses = {};
+    
+    // เริ่มต้นด้วยการกำหนดให้ทุกเบอร์มีสถานะสำเร็จ
+    for (String phone in phoneNumbers) {
+      combinedStatuses[phone] = SmsStatus.success;
+    }
+    
+    // ส่งทีละส่วน
+    for (String part in messageParts) {
+      // รอเวลาเล็กน้อยระหว่างการส่งแต่ละข้อความ
+      if (messageParts.indexOf(part) > 0) {
+        await Future.delayed(Duration(seconds: 2));
+      }
+      
+      SmsResult result = await _sendSimpleBulkSms(phoneNumbers, part);
+      
+      // อัปเดตสถานะ
+      if (!result.allSuccess) {
+        allSuccess = false;
+        if (result.errorMessage.isNotEmpty) {
+          errorMessage = result.errorMessage;
+        }
+      }
+      
+      // อัปเดตสถานะของแต่ละเบอร์
+      result.statuses.forEach((phone, status) {
+        // ถ้าเบอร์ใดเบอร์หนึ่งล้มเหลว ให้ถือว่าทั้งหมดล้มเหลว
+        if (status != SmsStatus.success && combinedStatuses[phone] == SmsStatus.success) {
+          combinedStatuses[phone] = status;
+        }
+      });
+      
+      // ถ้ามีเบอร์ใดเบอร์หนึ่งที่เครดิตหมด ให้หยุดการส่งทันที
+      if (result.statuses.values.contains(SmsStatus.noCredit)) {
+        break;
+      }
+    }
+    
+    return SmsResult(
+      allSuccess: allSuccess,
+      statuses: combinedStatuses,
+      errorMessage: errorMessage,
+    );
+  }
+  
+  // เมธอดสำหรับส่ง SMS จำนวนมาก (เกิน 500 เบอร์)
+  Future<SmsResult> _sendLargeBulkMessage(List<String> phoneNumbers, String message) async {
+    bool allSuccess = true;
+    String errorMessage = '';
+    Map<String, SmsStatus> combinedStatuses = {};
+    
+    // แบ่งรายการเบอร์โทรเป็นชุดๆ ละไม่เกิน 500 เบอร์
+    List<List<String>> batches = [];
+    
+    for (int i = 0; i < phoneNumbers.length; i += 500) {
+      int end = i + 500;
+      if (end > phoneNumbers.length) end = phoneNumbers.length;
+      batches.add(phoneNumbers.sublist(i, end));
+    }
+    
+    // ส่งแต่ละชุด
+    for (List<String> batch in batches) {
+      // ถ้าเป็นชุดแรก ส่งทันที
+      if (batches.indexOf(batch) == 0) {
+        SmsResult result = await _sendSimpleBulkSms(batch, message);
+        
+        // อัปเดตสถานะ
+        result.statuses.forEach((phone, status) {
+          combinedStatuses[phone] = status;
+        });
+        
+        if (!result.allSuccess) {
+          allSuccess = false;
+          if (result.errorMessage.isNotEmpty) {
+            errorMessage = result.errorMessage;
+          }
+        }
+        
+        // หากเครดิตหมด ให้หยุดการส่งทันที
+        if (result.statuses.values.contains(SmsStatus.noCredit)) {
+          // กำหนดสถานะเครดิตหมดให้กับเบอร์ที่เหลือ
+          for (int i = 1; i < batches.length; i++) {
+            for (String phone in batches[i]) {
+              combinedStatuses[phone] = SmsStatus.noCredit;
+            }
+          }
+          break;
+        }
+      } else {
+        // ชุดถัดไปใช้การส่งแบบตั้งเวลา (อย่างน้อย 15 นาทีหลังจากเวลาปัจจุบัน)
+        DateTime now = DateTime.now();
+        DateTime scheduledTime = now.add(Duration(minutes: 15 + batches.indexOf(batch)));
+        
+        SmsResult result = await _sendScheduledBulkSms(batch, message, scheduledTime);
+        
+        // อัปเดตสถานะ
+        result.statuses.forEach((phone, status) {
+          combinedStatuses[phone] = status;
+        });
+        
+        if (!result.allSuccess) {
+          allSuccess = false;
+          if (result.errorMessage.isNotEmpty && errorMessage.isEmpty) {
+            errorMessage = result.errorMessage;
+          }
+        }
+      }
+    }
+    
+    return SmsResult(
+      allSuccess: allSuccess,
+      statuses: combinedStatuses,
+      errorMessage: errorMessage,
+    );
+  }
+  
+  // ส่ง SMS แบบกลุ่มโดยไม่มีการแบ่งข้อความหรือการตรวจสอบพิเศษ
+  Future<SmsResult> _sendSimpleBulkSms(List<String> phoneNumbers, String message) async {
     try {
       if (phoneNumbers.isEmpty) {
         throw Exception('ไม่มีหมายเลขโทรศัพท์ที่จะส่ง');
@@ -182,11 +525,8 @@ class SmsService {
 
       // ตรวจสอบเครดิตก่อนการส่ง
       final creditInfo = await checkCredit();
-      debugPrint('ข้อมูลเครดิต: $creditInfo');
       
-      // ถ้าไม่มีเครดิต ให้ return ทันทีว่าไม่สามารถส่งได้
       if (!creditInfo['hasCredit']) {
-        debugPrint('ไม่สามารถส่ง SMS ได้เนื่องจากเครดิตหมด');
         return SmsResult(
           allSuccess: false,
           statuses: Map.fromIterable(
@@ -194,80 +534,51 @@ class SmsService {
             key: (phone) => phone,
             value: (_) => SmsStatus.noCredit
           ),
-          errorMessage: 'ไม่สามารถส่ง SMS ได้เนื่องจากเครดิตหมด (คงเหลือ: ${creditInfo['credit']})',
+          errorMessage: 'ไม่สามารถส่ง SMS ได้เนื่องจากเครดิตหมด',
         );
       }
 
-      bool allSuccess = true;
-      String errorMessage = '';
-      Map<String, SmsStatus> statuses = {};
-      
-      for (final recipient in phoneNumbers) {
-        // ตรวจสอบและแก้ไขรูปแบบเบอร์โทรศัพท์
-        String formattedPhone = recipient.replaceAll('-', '').replaceAll(' ', '');
-        if (formattedPhone.startsWith('+')) {
-          formattedPhone = formattedPhone.substring(1);
-        } else if (formattedPhone.startsWith('0')) {
-          formattedPhone = '66${formattedPhone.substring(1)}';
+      List<String> formattedPhones = phoneNumbers.map((phone) {
+        String formatted = phone.replaceAll('-', '').replaceAll(' ', '');
+        if (formatted.startsWith('0')) {
+          return formatted.substring(1); // ตัด 0 ออก
         }
-        
-        debugPrint('กำลังส่ง SMS ไปยัง: $formattedPhone');
-        debugPrint('ข้อความ: $message');
-        debugPrint('ผู้ส่ง: $_sender');
-        
-        // สร้าง URL สำหรับส่ง SMS ตามเอกสาร V1
-        final String encodedMessage = Uri.encodeComponent(message);
-        final String sendUrl = '$_apiUrl?username=$_apiUsername&password=$_apiPassword&method=send&from=$_sender&to=$formattedPhone&message=$encodedMessage';
-        
-        debugPrint('URL การส่ง: $sendUrl');
-        
-        // ส่งคำขอไปยัง API
-        final response = await http.get(Uri.parse(sendUrl));
-        
-        // พิมพ์รายละเอียดการตอบกลับจาก API
-        debugPrint('รหัสการตอบกลับ: ${response.statusCode}');
-        debugPrint('ข้อมูลการตอบกลับ: ${response.body}');
-        
-        if (response.statusCode == 200) {
-          // THSMS ตอบกลับเป็น XML - ตรวจสอบกรณีต่างๆ
-          if (response.body.contains('<status>success</status>')) {
-            debugPrint('ส่ง SMS ไปยัง $formattedPhone สำเร็จ!');
-            statuses[recipient] = SmsStatus.success;
-          } else if (response.body.contains('not enough credit')) {
-            // กรณีเครดิตไม่พอ
-            debugPrint('เครดิตไม่เพียงพอในการส่ง SMS ไปยัง $formattedPhone');
-            allSuccess = false;
-            errorMessage = 'เครดิต SMS ไม่เพียงพอ';
-            statuses[recipient] = SmsStatus.noCredit;
-          } else {
-            debugPrint('ส่ง SMS ไปยัง $formattedPhone ล้มเหลว: ${response.body}');
-            allSuccess = false;
-            errorMessage = response.body;
-            
-            // ตรวจสอบว่าเป็นสถานะกำลังส่งหรือล้มเหลว
-            if (response.body.contains('queue') || response.body.contains('pending')) {
-              statuses[recipient] = SmsStatus.pending;
-            } else {
-              statuses[recipient] = SmsStatus.failed;
-            }
-          }
-        } else {
-          debugPrint('เกิดข้อผิดพลาดในการส่ง SMS ไปยัง $formattedPhone - รหัสสถานะ: ${response.statusCode}');
-          allSuccess = false;
-          errorMessage = 'รหัสสถานะ: ${response.statusCode}, ข้อมูล: ${response.body}';
-          statuses[recipient] = SmsStatus.failed;
-        }
-      }
+        return formatted;
+      }).toList();
       
-      if (!allSuccess) {
-        debugPrint('บางข้อความส่งไม่สำเร็จ: $errorMessage');
-      }
-      
-      return SmsResult(
-        allSuccess: allSuccess,
-        statuses: statuses,
-        errorMessage: errorMessage,
+      final response = await http.post(
+        Uri.parse(_apiUrl),
+        headers: {
+          'Authorization': 'Basic ${base64Encode(utf8.encode('$_username:$_password'))}',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'sender': _sender,
+          'message': message,
+          'to': formattedPhones.join(','),
+        }),
       );
+      
+      if (response.statusCode == 200) {
+        return SmsResult(
+          allSuccess: true,
+          statuses: Map.fromIterable(
+            phoneNumbers,
+            key: (phone) => phone,
+            value: (_) => SmsStatus.success
+          ),
+        );
+      } else {
+        return SmsResult(
+          allSuccess: false,
+          statuses: Map.fromIterable(
+            phoneNumbers,
+            key: (phone) => phone,
+            value: (_) => SmsStatus.failed
+          ),
+          errorMessage: 'ส่ง SMS ไม่สำเร็จ: ${response.body}',
+        );
+      }
     } catch (e) {
       debugPrint('Error sending SMS: $e');
       return SmsResult(
@@ -277,8 +588,129 @@ class SmsService {
           key: (phone) => phone,
           value: (_) => SmsStatus.failed
         ),
-        errorMessage: 'เกิดข้อผิดพลาดในการส่ง SMS: $e',
+        errorMessage: 'เกิดข้อผิดพลาด: $e',
       );
     }
+  }
+  
+  // ส่ง SMS แบบตั้งเวลา สำหรับการส่งเบอร์จำนวนมาก
+  Future<SmsResult> _sendScheduledBulkSms(List<String> phoneNumbers, String message, DateTime scheduledTime) async {
+    try {
+      if (phoneNumbers.isEmpty) {
+        throw Exception('ไม่มีหมายเลขโทรศัพท์ที่จะส่ง');
+      }
+
+      // ตรวจสอบเครดิตก่อนการส่ง
+      final creditInfo = await checkCredit();
+      
+      if (!creditInfo['hasCredit']) {
+        return SmsResult(
+          allSuccess: false,
+          statuses: Map.fromIterable(
+            phoneNumbers,
+            key: (phone) => phone,
+            value: (_) => SmsStatus.noCredit
+          ),
+          errorMessage: 'ไม่สามารถส่ง SMS ได้เนื่องจากเครดิตหมด',
+        );
+      }
+
+      List<String> formattedPhones = phoneNumbers.map((phone) {
+        String formatted = phone.replaceAll('-', '').replaceAll(' ', '');
+        if (formatted.startsWith('0')) {
+          return formatted.substring(1); // ตัด 0 ออก
+        }
+        return formatted;
+      }).toList();
+      
+      // แปลงวันที่เวลาให้อยู่ในรูปแบบที่ API ต้องการ
+      String formattedDateTime = "${scheduledTime.year}-${scheduledTime.month.toString().padLeft(2, '0')}-${scheduledTime.day.toString().padLeft(2, '0')} ${scheduledTime.hour.toString().padLeft(2, '0')}:${scheduledTime.minute.toString().padLeft(2, '0')}:00";
+      
+      debugPrint('ตั้งเวลาส่ง SMS: $formattedDateTime');
+      
+      final response = await http.post(
+        Uri.parse(_apiUrl),
+        headers: {
+          'Authorization': 'Basic ${base64Encode(utf8.encode('$_username:$_password'))}',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'sender': _sender,
+          'message': message,
+          'to': formattedPhones.join(','),
+          'scheduled_delivery': formattedDateTime,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return SmsResult(
+          allSuccess: true,
+          statuses: Map.fromIterable(
+            phoneNumbers,
+            key: (phone) => phone,
+            value: (_) => SmsStatus.pending // ข้อความตั้งเวลาจะอยู่ในสถานะรอดำเนินการ
+          ),
+        );
+      } else {
+        return SmsResult(
+          allSuccess: false,
+          statuses: Map.fromIterable(
+            phoneNumbers,
+            key: (phone) => phone,
+            value: (_) => SmsStatus.failed
+          ),
+          errorMessage: 'ส่ง SMS ไม่สำเร็จ: ${response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error sending scheduled SMS: $e');
+      return SmsResult(
+        allSuccess: false,
+        statuses: Map.fromIterable(
+          phoneNumbers, 
+          key: (phone) => phone,
+          value: (_) => SmsStatus.failed
+        ),
+        errorMessage: 'เกิดข้อผิดพลาด: $e',
+      );
+    }
+  }
+
+  // คำนวณจำนวนเครดิตที่จะใช้ในการส่ง SMS
+  int calculateCreditUsage(String message, int recipientCount) {
+    // ตรวจสอบว่ามีภาษาไทยหรือไม่
+    bool containsThai = RegExp(r'[\u0E00-\u0E7F]').hasMatch(message);
+    
+    // คำนวณจำนวนข้อความที่ต้องส่ง
+    int messageCount = 1;
+    if (containsThai) {
+      messageCount = (message.length / 70).ceil();
+    } else {
+      messageCount = (message.length / 160).ceil();
+    }
+    
+    // จำกัดไม่เกิน 5 ข้อความต่อการส่ง
+    if (messageCount > 5) messageCount = 5;
+    
+    // คำนวณเครดิตที่ใช้ (1 ข้อความ x จำนวนเบอร์)
+    return messageCount * recipientCount;
+  }
+  
+  // คำนวณเครดิตที่ใช้สำหรับข้อความ SOS
+  Future<Map<String, dynamic>> calculateSosCreditUsage(UserProfile userProfile, String mapLink, List<String> phoneNumbers) {
+    String primaryMessage = createSosMessage(userProfile, mapLink);
+    String medicalMessage = createMedicalInfoMessage(userProfile);
+    
+    int primaryCredit = calculateCreditUsage(primaryMessage, phoneNumbers.length);
+    int medicalCredit = calculateCreditUsage(medicalMessage, phoneNumbers.length);
+    
+    return Future.value({
+      'primaryMessage': primaryMessage,
+      'medicalMessage': medicalMessage,
+      'primaryCreditUsage': primaryCredit,
+      'medicalCreditUsage': medicalCredit,
+      'totalCreditUsage': primaryCredit + medicalCredit,
+      'recipientCount': phoneNumbers.length,
+    });
   }
 } 

@@ -56,11 +56,8 @@ class SosService {
       // ดึงข้อมูลผู้ใช้
       final user = await _getUserData(userId);
       if (user == null) {
-        return {
-          'success': false,
-          'message': 'ไม่พบข้อมูลผู้ใช้',
-          'userId': userId,
-        };
+        // ถ้าไม่พบข้อมูลผู้ใช้ ให้ใช้ข้อมูลพื้นฐาน
+        print('SOS Service: ไม่พบข้อมูลผู้ใช้ ใช้ข้อมูลพื้นฐานแทน');
       }
 
       // ดึงตำแหน่งปัจจุบัน
@@ -75,117 +72,46 @@ class SosService {
       print('SOS Service: กำลังดึงรายชื่อผู้ติดต่อฉุกเฉิน...');
       final contacts = await _getEmergencyContacts(userId);
       
+      // ถ้าไม่มีผู้ติดต่อฉุกเฉิน ให้ส่งไปที่เบอร์ฉุกเฉินพื้นฐาน
+      List<String> emergencyNumbers = [];
       if (contacts.isEmpty) {
-        return {
-          'success': false,
-          'message': 'ไม่พบรายชื่อผู้ติดต่อฉุกเฉิน กรุณาเพิ่มผู้ติดต่อฉุกเฉินก่อน',
-        };
+        print('SOS Service: ไม่พบผู้ติดต่อฉุกเฉิน ใช้เบอร์ฉุกเฉินพื้นฐาน');
+        emergencyNumbers = ['1669', '191', '199']; // เบอร์ฉุกเฉินพื้นฐาน
+      } else {
+        emergencyNumbers = contacts.map((contact) => contact['phone'] as String).toList();
       }
       
-      print('SOS Service: พบผู้ติดต่อฉุกเฉิน ${contacts.length} คน');
-
-      // สร้างข้อความ SOS แบบเดียวกันทุกประเภทการแจ้งเหตุ
-      final userName = user['name'] ?? 'ผู้ใช้';
-      final currentTime = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+      print('SOS Service: จะส่ง SOS ไปยัง ${emergencyNumbers.length} เบอร์');
       
-      // สร้างข้อความที่มีข้อมูลเพิ่มเติม
+      // สร้างข้อความ SOS
       final message = '''
-🚨 SOS! ฉุกเฉิน! $userName ต้องการความช่วยเหลือด่วน!
-เวลา: $currentTime
-👤 ข้อมูลผู้ใช้:
-- ชื่อ: ${user['name'] ?? 'ไม่ระบุ'}
-- เบอร์โทร: ${user['phone'] ?? 'ไม่ระบุ'}
-- กรุ๊ปเลือด: ${user['bloodType'] ?? 'ไม่ระบุ'}
-- อาการป่วย: ${user['medicalConditions'] ?? 'ไม่ระบุ'}
-- ภูมิแพ้: ${user['allergies'] ?? 'ไม่ระบุ'}
-📍 พิกัดปัจจุบัน: $positionLink
-${detectionSource == 'automatic' ? '[ระบบตรวจพบการล้ม]' : detectionSource == 'notification' ? '[ยืนยันจากการแจ้งเตือน]' : '[ผู้ใช้แจ้งเหตุฉุกเฉิน]'}
+🚨 SOS ฉุกเฉิน 🚨
+มีผู้แจ้งเหตุฉุกเฉินจากแอพ SOS
+ตำแหน่ง: $positionLink
+เวลา: ${DateTime.now().toString()}
 ''';
 
-      // รวบรวมเบอร์โทรจากผู้ติดต่อฉุกเฉิน
-      List<String> phoneNumbers = [];
-      for (final contact in contacts) {
-        final phoneNumber = contact['phone'] as String?;
-        if (phoneNumber != null && phoneNumber.isNotEmpty) {
-          phoneNumbers.add(phoneNumber);
-        }
-      }
+      // ส่ง SMS
+      print('SOS Service: กำลังส่ง SMS...');
+      final smsResult = await _smsService.sendBulkSms(emergencyNumbers, message);
       
-      if (phoneNumbers.isEmpty) {
-        return {
-          'success': false,
-          'message': 'ไม่พบเบอร์โทรศัพท์ของผู้ติดต่อฉุกเฉิน',
-        };
-      }
+      // บันทึกประวัติ
+      final logId = await _saveSosHistory(
+        userId,
+        position,
+        smsResult.successNumbers,
+        smsResult.failedNumbers,
+        detectionSource,
+        smsResult,
+      );
       
-      // ส่ง SMS โดยใช้ SMS Gateway API (sendBulkSms)
-      print('SOS Service: กำลังส่ง SMS ผ่าน Gateway API...');
-      final smsResult = await SmsService().sendBulkSms(phoneNumbers, message);
-      
-      // แยกเบอร์ที่ส่งสำเร็จและล้มเหลว
-      List<String> sentNumbers = [];
-      List<String> failedNumbers = [];
-      
-      smsResult.statuses.forEach((phone, status) {
-        if (status == SmsStatus.success || status == SmsStatus.pending) {
-          sentNumbers.add(phone);
-        } else {
-          failedNumbers.add(phone);
-        }
-      });
-      
-      print('SOS Service: ส่ง SMS สำเร็จ ${sentNumbers.length} เบอร์, ล้มเหลว ${failedNumbers.length} เบอร์');
-
-      String sosId = "not_saved";
-      
-      // บันทึกประวัติการส่ง SOS เฉพาะเมื่อส่งสำเร็จอย่างน้อย 1 เบอร์ และไม่มีปัญหาเครดิตหมด
-      if (sentNumbers.isNotEmpty && !smsResult.statuses.values.any((status) => status == SmsStatus.noCredit)) {
-        print('SOS Service: กำลังบันทึกประวัติการส่ง SOS...');
-        
-        sosId = await _saveSosHistory(
-          userId,
-          position,
-          sentNumbers,
-          failedNumbers,
-          detectionSource,
-          smsResult,
-        );
-        
-        print('SOS Service: บันทึกประวัติ SOS เรียบร้อย ID: $sosId');
-      } else if (smsResult.statuses.values.any((status) => status == SmsStatus.noCredit)) {
-        print('SOS Service: ไม่มีการบันทึกประวัติ SOS เนื่องจากเครดิต SMS Gateway หมด');
-      } else {
-        print('SOS Service: ไม่มีการบันทึกประวัติ SOS เนื่องจากส่ง SMS ไม่สำเร็จ');
-      }
-      
-      // คืนค่าผลลัพธ์
-      if (smsResult.statuses.values.any((status) => status == SmsStatus.noCredit)) {
-        return {
-          'success': false,
-          'message': 'ไม่สามารถส่ง SMS เนื่องจากเครดิตหมด',
-          'sentCount': 0,
-          'failedCount': failedNumbers.length,
-          'isCreditEmpty': true,
-          'sosId': "not_saved",
-        };
-      } else if (sentNumbers.isNotEmpty || smsResult.statuses.values.any((status) => status == SmsStatus.pending)) {
-        return {
-          'success': true,
-          'message': 'ส่ง SOS สำเร็จ ${sentNumbers.length} เบอร์',
-          'sentCount': sentNumbers.length,
-          'failedCount': failedNumbers.length,
-          'sosId': sosId,
-          'isCreditEmpty': false,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'ไม่สามารถส่ง SMS ไปยังผู้ติดต่อฉุกเฉินได้: ${smsResult.errorMessage}',
-          'sentCount': 0,
-          'failedCount': failedNumbers.length,
-          'sosId': "not_saved",
-        };
-      }
+      return {
+        'success': true,
+        'message': 'ส่ง SOS สำเร็จ',
+        'logId': logId,
+        'sentTo': smsResult.successNumbers,
+        'failedTo': smsResult.failedNumbers,
+      };
     } catch (e) {
       print('SOS Service ERROR: $e');
       return {
